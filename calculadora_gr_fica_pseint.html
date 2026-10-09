@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Gráficas PSeInt</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#0f172a',
+                        cardbg: '#1e293b',
+                        accent: '#38bdf8',
+                        accenthover: '#0ea5e9'
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+    </style>
+</head>
+<body class="bg-darkbg text-slate-100 min-h-screen flex flex-col justify-between selection:bg-accent selection:text-slate-900">
+
+    <header class="border-b border-slate-800 bg-cardbg/50 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="h-3 w-3 rounded-full bg-accent animate-pulse"></div>
+                <h1 class="text-lg font-bold tracking-tight mono">calculador_y_resolucionador_de_graficas.psc</h1>
+            </div>
+            <span class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 mono border border-slate-700">PSeInt Strict Mode</span>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 py-8 w-full flex-grow space-y-8">
+        
+        <!-- CARD 1: Configuración de Escalas -->
+        <section class="bg-cardbg border border-slate-800 rounded-xl p-6 shadow-xl">
+            <div class="flex items-center space-x-2 mb-4">
+                <span class="flex items-center justify-center w-6 h-6 rounded-full bg-accent/10 text-accent text-xs font-bold mono">01</span>
+                <h2 class="text-md font-semibold tracking-wide text-slate-200">Factores de Escala (Base: H=21, V=26)</h2>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Max Y -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-slate-300">Valor Máximo de Y</label>
+                    <input type="number" id="valormY" step="any" placeholder="Ej. 16" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-accent transition mono">
+                    <div id="resYm" class="text-xs text-slate-400 mono hidden pt-1">valorYm = <span class="text-accent font-semibold">0.0000</span></div>
+                </div>
+
+                <!-- Max X -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-slate-300">Valor Máximo de X</label>
+                    <input type="number" id="valormX" step="any" placeholder="Ej. 4" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-accent transition mono">
+                    <div id="resXm" class="text-xs text-slate-400 mono hidden pt-1">valorXm = <span class="text-accent font-semibold">0.0000</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CARD 2: Ingreso de Datos (Vectores de 6 elementos) -->
+        <section class="bg-cardbg border border-slate-800 rounded-xl p-6 shadow-xl">
+            <div class="flex items-center space-x-2 mb-4">
+                <span class="flex items-center justify-center w-6 h-6 rounded-full bg-accent/10 text-accent text-xs font-bold mono">02</span>
+                <h2 class="text-md font-semibold tracking-wide text-slate-200">Valores de las Series (Dimension [6])</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Entradas Y -->
+                <div class="space-y-3">
+                    <h3 class="text-xs font-semibold uppercase tracking-wider text-accent mono">Vector valorY[i] (6 elementos)</h3>
+                    <div id="inputsYContainer" class="space-y-2">
+                        <!-- Generado por JS -->
+                    </div>
+                </div>
+
+                <!-- Entradas X -->
+                <div class="space-y-3">
+                    <h3 class="text-xs font-semibold uppercase tracking-wider text-accent mono">Vector valorX[i] (6 elementos)</h3>
+                    <div id="inputsXContainer" class="space-y-2">
+                        <!-- Generado por JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-end">
+                <button onclick="ejecutarCalculo()" class="bg-accent hover:bg-accenthover text-slate-950 font-semibold px-6 py-2.5 rounded-lg transition duration-200 flex items-center space-x-2 shadow-lg shadow-sky-500/10">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    <span>Ejecutar Algoritmo PSeInt</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- CARD 3: Resultados y Tablas (Oculto inicialmente) -->
+        <section id="resultSection" class="bg-cardbg border border-slate-800 rounded-xl p-6 shadow-xl hidden space-y-6">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div class="flex items-center space-x-2">
+                    <span class="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold mono">03</span>
+                    <h2 class="text-md font-semibold tracking-wide text-slate-200">Tablas de Resultados Procesados</h2>
+                </div>
+                <span class="text-xs text-emerald-400 mono bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">Ejecución Exitosa</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Tabla Resultados Y -->
+                <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-4">
+                    <div class="text-xs font-semibold text-slate-400 mono mb-3">resultadosY[i] (Truncado a 1 decimal)</div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm mono">
+                            <thead>
+                                <tr class="border-b border-slate-800 text-slate-500 text-xs">
+                                    <th class="pb-2">Índice</th>
+                                    <th class="pb-2">Original</th>
+                                    <th class="pb-2 text-right">Procesado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaYBody" class="divide-y divide-slate-800/50 text-slate-300">
+                                <!-- Dinámico -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tabla Resultados X -->
+                <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-4">
+                    <div class="text-xs font-semibold text-slate-400 mono mb-3">resultadosX[i] (Truncado a 1 decimal)</div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm mono">
+                            <thead>
+                                <tr class="border-b border-slate-800 text-slate-500 text-xs">
+                                    <th class="pb-2">Índice</th>
+                                    <th class="pb-2">Original</th>
+                                    <th class="pb-2 text-right">Procesado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaXBody" class="divide-y divide-slate-800/50 text-slate-300">
+                                <!-- Dinámico -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="border-t border-slate-800 py-4 text-center text-xs text-slate-500 mono">
+        Traducido directamente de PSeInt Estricto &bull; Mapeo de Coordenadas 26x21
+    </footer>
+
+    <script>
+        const VALOR_H = 21;
+        const VALOR_V = 26;
+
+        // Inicializar los 6 inputs dinámicamente como en el bucle Para de PSeInt
+        function inicializarInputs() {
+            const containerY = document.getElementById('inputsYContainer');
+            const containerX = document.getElementById('inputsXContainer');
+            
+            for (let i = 0; i < 6; i++) {
+                // Inputs Y
+                const divY = document.createElement('div');
+                divY.className = "flex items-center space-x-3";
+                divY.innerHTML = `
+                    <span class="text-xs mono text-slate-500 w-12">Y[${i+1}]</span>
+                    <input type="number" step="any" id="inputY_${i}" placeholder="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-accent transition mono">
+                `;
+                containerY.appendChild(divY);
+
+                // Inputs X
+                const divX = document.createElement('div');
+                divX.className = "flex items-center space-x-3";
+                divX.innerHTML = `
+                    <span class="text-xs mono text-slate-500 w-12">X[${i+1}]</span>
+                    <input type="number" step="any" id="inputX_${i}" placeholder="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-accent transition mono">
+                `;
+                containerX.appendChild(divX);
+            }
+        }
+
+        // Lógica exacta del algoritmo PSeInt al hacer clic en Ejecutar
+        function ejecutarCalculo() {
+            const rawValormY = parseFloat(document.getElementById('valormY').value);
+            const rawValormX = parseFloat(document.getElementById('valormX').value);
+
+            if (isNaN(rawValormY) || isNaN(rawValormX)) {
+                alert("Por favor ingresa los valores máximos de Y y X antes de ejecutar.");
+                return;
+            }
+
+            // 1. Cálculo de factores con 4 decimales exactos truncados (tal cual el código)
+            const valorYm = Math.trunc((rawValormY / VALOR_V) * 10000) / 10000;
+            const valorXm = Math.trunc((rawValormX / VALOR_H) * 10000) / 10000;
+
+            // Mostrar resultados intermedios de los factores
+            document.getElementById('resYm').classList.remove('hidden');
+            document.getElementById('resYm').querySelector('span').textContent = valorYm.toFixed(4);
+            
+            document.getElementById('resXm').classList.remove('hidden');
+            document.getElementById('resXm').querySelector('span').textContent = valorXm.toFixed(4);
+
+            const resultadosYBody = document.getElementById('tablaYBody');
+            const resultadosXBody = document.getElementById('tablaXBody');
+            resultadosYBody.innerHTML = '';
+            resultadosXBody.innerHTML = '';
+
+            // Bucle Para idéntico al de PSeInt para vectores Y y X (con truncado a 1 decimal: * 10 / 10)
+            for (let i = 0; i < 6; i++) {
+                const valY = parseFloat(document.getElementById(`inputY_${i}`).value) || 0;
+                const valX = parseFloat(document.getElementById(`inputX_${i}`).value) || 0;
+
+                const resY = Math.trunc((valY / valorYm) * 10) / 10;
+                const resX = Math.trunc((valX / valorXm) * 10) / 10;
+
+                // Fila Y
+                const trY = document.createElement('tr');
+                trY.innerHTML = `
+                    <td class="py-2 text-slate-500">[${i+1}]</td>
+                    <td class="py-2 text-slate-400">${valY}</td>
+                    <td class="py-2 text-right font-semibold text-accent">${resY.toFixed(1)}</td>
+                `;
+                resultadosYBody.appendChild(trY);
+
+                // Fila X
+                const trX = document.createElement('tr');
+                trX.innerHTML = `
+                    <td class="py-2 text-slate-500">[${i+1}]</td>
+                    <td class="py-2 text-slate-400">${valX}</td>
+                    <td class="py-2 text-right font-semibold text-accent">${resX.toFixed(1)}</td>
+                `;
+                resultadosXBody.appendChild(trX);
+            }
+
+            // Mostrar sección de resultados
+            document.getElementById('resultSection').classList.remove('hidden');
+            document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        window.onload = inicializarInputs;
+    </script>
+</body>
+</html>
