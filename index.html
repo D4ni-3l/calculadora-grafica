@@ -1,1636 +1,954 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Neon Striker v4</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Gráficas PSeInt | Mapeo 21x26 & Graficador</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#090d16',
+                        cardbg: '#0f172a',
+                        cardinner: '#1e293b',
+                        accent: '#38bdf8',
+                        accenthover: '#0ea5e9',
+                        emeraldaccent: '#10b981',
+                        roseaccent: '#f43f5e',
+                        violetaccent: '#a855f7'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js para visualización de gráficas y comprobación visual -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Fuentes tipográficas Inter y JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body, html {
-            width: 100%; height: 100%;
-            background: #04040f;
-            overflow: hidden;
-            font-family: 'Courier New', monospace;
-            touch-action: none;
-        }
-        #gameCanvas { display: block; position: absolute; inset: 0; }
-
-        /* ══ HUD ══ */
-        #hud {
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            pointer-events: none;
-            user-select: none;
-        }
-        #scoreWrap {
-            position: absolute;
-            top: 16px; left: 50%;
-            transform: translateX(-50%);
-            text-align: center;
-        }
-        #scoreLabel { font-size: 10px; letter-spacing: 3px; color: rgba(0,255,255,0.5); text-transform: uppercase; }
-        #score { font-size: 36px; font-weight: 900; color: #00ffff; text-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff44; line-height: 1; }
-        #bestWrap { font-size: 9px; letter-spacing: 2px; color: rgba(255,220,0,0.55); margin-top: 2px; }
-        #bestScore { color: #ffdd00; font-weight: 700; }
-        #levelBadge {
-            position: absolute; top: 20px; right: 70px;
-            background: rgba(255,0,170,0.15);
-            border: 1px solid rgba(255,0,170,0.4);
-            color: #ff00aa; font-size: 11px; letter-spacing: 2px;
-            padding: 4px 10px; border-radius: 20px;
-        }
-        /* Weapon indicator */
-        #weaponBadge {
-            position: absolute; top: 56px; right: 70px;
-            background: rgba(0,0,0,0.35);
-            border: 1px solid rgba(255,255,255,0.15);
-            color: #fff; font-size: 10px; letter-spacing: 1px;
-            padding: 3px 8px; border-radius: 20px;
-            transition: border-color 0.3s, color 0.3s;
-        }
-
-        /* Pause button */
-        #pauseBtn {
-            position: absolute; top: 16px; right: 16px;
-            width: 40px; height: 40px;
-            background: rgba(0,0,0,0.4);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 8px;
-            color: #fff; font-size: 18px;
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer;
-            pointer-events: all;
-            z-index: 50;
-            transition: background 0.2s;
-        }
-        #pauseBtn:active { background: rgba(255,255,255,0.1); }
-
-        #barsPanel {
-            position: absolute; top: 16px; left: 16px;
-            display: flex; flex-direction: column; gap: 6px;
-        }
-        .bar-row { display: flex; align-items: center; gap: 8px; }
-        .bar-icon { font-size: 11px; letter-spacing: 1px; width: 24px; text-align: right; flex-shrink: 0; }
-        .bar-track { width: 110px; height: 8px; background: rgba(255,255,255,0.07); border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); position: relative; }
-        .bar-fill { height: 100%; border-radius: 4px; transition: width 0.12s ease, background 0.2s; }
-        .bar-track::after {
-            content: ''; position: absolute; inset: 0;
-            background: repeating-linear-gradient(90deg, transparent 0px, transparent calc(20% - 1px), rgba(0,0,0,0.35) calc(20% - 1px), rgba(0,0,0,0.35) 20%);
-            border-radius: 4px; pointer-events: none;
-        }
-        #hpFill   { background: #00ff88; box-shadow: 0 0 6px #00ff88; }
-        #heatFill { background: #ff8800; }
-        .bar-val { font-size: 10px; color: rgba(255,255,255,0.4); min-width: 24px; letter-spacing: 1px; }
-
-        /* Ability slots */
-        #abilitySlots {
-            position: absolute; bottom: 220px; right: 14px;
-            display: flex; flex-direction: column; gap: 8px;
-            pointer-events: none;
-        }
-        .ability-slot {
-            width: 48px; height: 48px; border-radius: 10px;
-            border: 2px solid rgba(255,255,255,0.15);
-            background: rgba(0,0,0,0.4);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            position: relative; overflow: hidden;
-        }
-        .ability-slot.has-ability { cursor: pointer; pointer-events: all; }
-        .ability-slot .slot-icon { font-size: 20px; line-height: 1; }
-        .ability-slot .slot-key  { font-size: 8px; letter-spacing: 1px; opacity: 0.5; }
-        .ability-slot .slot-cd-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.65); transition: height 0.1s linear; }
-        .ability-slot .slot-cd-text { position: absolute; font-size: 9px; font-weight: 900; color: #fff; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 2; }
-        .ability-slot.fire-type   { border-color: rgba(255,100,0,0.7); box-shadow: 0 0 10px rgba(255,100,0,0.3); }
-        .ability-slot.ice-type    { border-color: rgba(0,200,255,0.7); box-shadow: 0 0 10px rgba(0,200,255,0.3); }
-        .ability-slot.electric-type { border-color: rgba(255,255,0,0.7); box-shadow: 0 0 10px rgba(255,255,0,0.3); }
-        .ability-slot.nova-type   { border-color: rgba(200,0,255,0.7); box-shadow: 0 0 10px rgba(200,0,255,0.3); }
-        .ability-slot.shield-type { border-color: rgba(0,255,150,0.7); box-shadow: 0 0 10px rgba(0,255,150,0.3); }
-        .ability-slot.drain-type  { border-color: rgba(255,0,100,0.7); box-shadow: 0 0 10px rgba(255,0,100,0.3); }
-        .ability-slot.time-type   { border-color: rgba(255,200,0,0.7); box-shadow: 0 0 10px rgba(255,200,0,0.3); }
-        .ability-slot.vortex-type { border-color: rgba(0,255,200,0.7); box-shadow: 0 0 10px rgba(0,255,200,0.3); }
-        .ability-slot.missile-type{ border-color: rgba(255,128,0,0.7); box-shadow: 0 0 10px rgba(255,128,0,0.3); }
-
-        #overheatBanner {
-            position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
-            color: #ff3300; font-size: 12px; font-weight: 900; letter-spacing: 4px;
-            opacity: 0; transition: opacity 0.15s;
-            text-shadow: 0 0 10px #ff3300; pointer-events: none;
-        }
-        #overheatBanner.show { opacity: 1; }
-
-        /* ══ Overlay base ══ */
-        .overlay-screen {
-            position: absolute; inset: 0;
-            background: rgba(2,2,20,0.93);
-            display: none; flex-direction: column;
-            justify-content: center; align-items: center;
-            z-index: 150;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-        }
-        .overlay-screen.visible { display: flex; }
-
-        /* ══ Ability Pick ══ */
-        .pick-title { font-size: clamp(18px,5vw,28px); font-weight: 900; color: #fff; letter-spacing: 5px; text-transform: uppercase; margin-bottom: 6px; text-shadow: 0 0 20px #fff4; }
-        .pick-subtitle { font-size: 11px; color: rgba(255,255,255,0.35); letter-spacing: 3px; margin-bottom: 36px; }
-        #abilityCards { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; padding: 0 20px; }
-        .ability-card {
-            width: 140px; padding: 20px 14px; border-radius: 16px;
-            border: 2px solid rgba(255,255,255,0.15);
-            background: rgba(255,255,255,0.04);
-            text-align: center; cursor: pointer;
-            transition: all 0.15s; position: relative; overflow: hidden;
-        }
-        .ability-card::before { content: ''; position: absolute; inset: 0; opacity: 0; transition: opacity 0.15s; }
-        .ability-card:active { transform: scale(0.96); }
-        .ability-card:active::before { opacity: 1; }
-        .ability-card.fire-card    { border-color: #ff6400aa; }
-        .ability-card.fire-card::before    { background: radial-gradient(circle at center, rgba(255,100,0,0.18), transparent); }
-        .ability-card.ice-card     { border-color: #00c8ffaa; }
-        .ability-card.ice-card::before     { background: radial-gradient(circle at center, rgba(0,200,255,0.18), transparent); }
-        .ability-card.electric-card{ border-color: #ffff00aa; }
-        .ability-card.electric-card::before{ background: radial-gradient(circle at center, rgba(255,255,0,0.18), transparent); }
-        .ability-card.nova-card    { border-color: #c800ffaa; }
-        .ability-card.nova-card::before    { background: radial-gradient(circle at center, rgba(200,0,255,0.18), transparent); }
-        .ability-card.shield-card  { border-color: #00ff96aa; }
-        .ability-card.shield-card::before  { background: radial-gradient(circle at center, rgba(0,255,150,0.18), transparent); }
-        .ability-card.drain-card   { border-color: #ff0064aa; }
-        .ability-card.drain-card::before   { background: radial-gradient(circle at center, rgba(255,0,100,0.18), transparent); }
-        .ability-card.time-card    { border-color: #ffc800aa; }
-        .ability-card.time-card::before    { background: radial-gradient(circle at center, rgba(255,200,0,0.18), transparent); }
-        .ability-card.vortex-card  { border-color: #00ffc8aa; }
-        .ability-card.vortex-card::before  { background: radial-gradient(circle at center, rgba(0,255,200,0.18), transparent); }
-        .ability-card.missile-card { border-color: #ff8000aa; }
-        .ability-card.missile-card::before { background: radial-gradient(circle at center, rgba(255,128,0,0.18), transparent); }
-        .card-icon { font-size: 38px; margin-bottom: 8px; display: block; }
-        .card-name { font-size: 13px; font-weight: 900; letter-spacing: 2px; margin-bottom: 6px; color: #fff; }
-        .card-desc { font-size: 10px; color: rgba(255,255,255,0.45); line-height: 1.5; letter-spacing: 0.5px; }
-        .pick-slot-indicator { margin-bottom: 16px; font-size: 10px; letter-spacing: 3px; color: rgba(255,255,255,0.4); }
-        .pick-slot-indicator span { color: #00ffff; font-weight: 900; }
-
-        /* ══ Weapon Pick ══ */
-        #weaponPickScreen { z-index: 145; }
-        .weapon-title { font-size: clamp(16px,4.5vw,24px); font-weight: 900; color: #ffaa00; letter-spacing: 4px; text-transform: uppercase; margin-bottom: 6px; text-shadow: 0 0 20px #ffaa0088; }
-        #weaponCards { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; padding: 0 20px; }
-        .weapon-card {
-            width: 160px; padding: 18px 14px; border-radius: 14px;
-            border: 2px solid rgba(255,255,255,0.12);
-            background: rgba(255,255,255,0.03);
-            text-align: center; cursor: pointer;
-            transition: all 0.15s; position: relative; overflow: hidden;
-        }
-        .weapon-card:active { transform: scale(0.96); }
-        .weapon-card .w-icon { font-size: 34px; margin-bottom: 8px; display: block; }
-        .weapon-card .w-name { font-size: 12px; font-weight: 900; letter-spacing: 2px; margin-bottom: 6px; color: #ffaa00; }
-        .weapon-card .w-desc { font-size: 10px; color: rgba(255,255,255,0.4); line-height: 1.5; }
-        .weapon-card.current-weapon { border-color: rgba(255,255,255,0.5) !important; background: rgba(255,255,255,0.08) !important; }
-
-        /* ══ Game Over ══ */
-        #gameOverScreen {
-            position: absolute; inset: 0;
-            background: rgba(0,0,0,0); display: none;
-            flex-direction: column; justify-content: center; align-items: center;
-            z-index: 200;
-            backdrop-filter: blur(6px);
-            -webkit-backdrop-filter: blur(6px);
-            transition: background 0.4s;
-        }
-        #gameOverScreen.visible { background: rgba(2,2,12,0.88); }
-        .go-title { font-size: clamp(28px,8vw,52px); font-weight: 900; color: #ff0055; letter-spacing: 6px; text-shadow: 0 0 30px #ff0055, 0 0 60px #ff005544; animation: flicker 2s infinite; margin-bottom: 4px; }
-        .go-label { font-size: 11px; letter-spacing: 4px; color: rgba(255,255,255,0.35); margin-bottom: 6px; }
-        #finalScore { font-size: clamp(40px,12vw,72px); font-weight: 900; color: #00ffff; text-shadow: 0 0 20px #00ffff; line-height: 1; margin-bottom: 10px; }
-        #newBestBadge { font-size: 13px; letter-spacing: 4px; color: #ffdd00; text-shadow: 0 0 14px #ffdd00; margin-bottom: 6px; opacity: 0; transition: opacity 0.5s 0.3s; font-weight: 900; }
-        #newBestBadge.show { opacity: 1; }
-        #gobestLabel { font-size: 11px; letter-spacing: 3px; color: rgba(255,220,0,0.4); margin-bottom: 6px; }
-        #goBestScore { font-size: 24px; font-weight: 900; color: #ffdd00; text-shadow: 0 0 12px #ffdd00aa; margin-bottom: 28px; }
-        .go-btn {
-            padding: 14px 40px; font-size: 14px; font-family: 'Courier New', monospace;
-            letter-spacing: 3px; font-weight: 700;
-            background: transparent; color: #00ffff; border: 2px solid #00ffff;
-            border-radius: 3px; cursor: pointer;
-            box-shadow: 0 0 20px #00ffff33, inset 0 0 20px #00ffff0a;
-            transition: all 0.15s; text-transform: uppercase; margin: 6px;
-        }
-        .go-btn:active { background: #00ffff22; box-shadow: 0 0 40px #00ffff66; transform: scale(0.97); }
-
-        /* ══ Pause Menu ══ */
-        #pauseScreen { z-index: 160; }
-        .pause-title { font-size: clamp(24px,7vw,46px); font-weight: 900; color: #fff; letter-spacing: 8px; text-shadow: 0 0 30px rgba(255,255,255,0.3); margin-bottom: 8px; }
-        .pause-subtitle { font-size: 11px; letter-spacing: 3px; color: rgba(255,255,255,0.3); margin-bottom: 40px; }
-        .pause-menu-btn {
-            display: block; width: 260px; padding: 14px;
-            margin: 8px auto; font-size: 13px; letter-spacing: 3px;
-            font-family: 'Courier New', monospace; font-weight: 700;
-            background: transparent; color: rgba(255,255,255,0.7);
-            border: 1px solid rgba(255,255,255,0.2); border-radius: 4px;
-            cursor: pointer; text-transform: uppercase;
-            transition: all 0.15s; text-align: center;
-        }
-        .pause-menu-btn:hover, .pause-menu-btn:active { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.5); color: #fff; }
-        .pause-menu-btn.accent { color: #00ffff; border-color: rgba(0,255,255,0.4); }
-        .pause-menu-btn.accent:hover { background: rgba(0,255,255,0.08); }
-
-        /* ══ Settings / Appearance ══ */
-        #settingsScreen { z-index: 155; }
-        .settings-title { font-size: clamp(16px,4vw,22px); font-weight: 900; color: #fff; letter-spacing: 5px; margin-bottom: 6px; }
-        .settings-subtitle { font-size: 10px; letter-spacing: 2px; color: rgba(255,255,255,0.3); margin-bottom: 30px; }
-        .settings-panel { width: min(400px, 90vw); display: flex; flex-direction: column; gap: 20px; }
-        .setting-row { display: flex; flex-direction: column; gap: 8px; }
-        .setting-label { font-size: 11px; letter-spacing: 2px; color: rgba(255,255,255,0.5); text-transform: uppercase; }
-        .setting-slider { width: 100%; -webkit-appearance: none; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.12); outline: none; }
-        .setting-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #00ffff; box-shadow: 0 0 8px #00ffff; cursor: pointer; }
-        .color-swatch-row { display: flex; gap: 10px; flex-wrap: wrap; }
-        .color-swatch {
-            width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
-            border: 2px solid transparent; transition: all 0.15s;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .color-swatch.active { border-color: #fff; transform: scale(1.15); }
-        .settings-back {
-            margin-top: 20px; padding: 12px 30px;
-            font-size: 12px; letter-spacing: 3px; font-family: 'Courier New', monospace;
-            font-weight: 700; background: transparent; color: rgba(255,255,255,0.5);
-            border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; cursor: pointer;
-            transition: all 0.15s;
-        }
-        .settings-back:active { background: rgba(255,255,255,0.08); }
-
-        /* ══ Main Menu ══ */
-        #mainMenuScreen { z-index: 170; background: rgba(4,4,15,0.97); }
-        .menu-title-main { font-size: clamp(28px,9vw,56px); font-weight: 900; letter-spacing: 6px; color: #00ffff; text-shadow: 0 0 30px #00ffff, 0 0 80px #00ffff44; margin-bottom: 4px; }
-        .menu-ver { font-size: 10px; letter-spacing: 4px; color: rgba(0,255,255,0.3); margin-bottom: 10px; }
-        .menu-tagline { font-size: 11px; letter-spacing: 3px; color: rgba(255,255,255,0.3); margin-bottom: 40px; }
-        .menu-best { font-size: 12px; letter-spacing: 2px; color: rgba(255,220,0,0.6); margin-bottom: 30px; }
-        .menu-best span { color: #ffdd00; font-weight: 900; }
-
-        /* Level-up banner */
-        #levelUpBanner {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%,-50%);
-            font-size: clamp(22px,6vw,36px); font-weight: 900; color: #fff;
-            letter-spacing: 6px; text-shadow: 0 0 30px #ff00aa, 0 0 60px #ff00aa88;
-            pointer-events: none; opacity: 0; transition: none; text-transform: uppercase;
-        }
-        #levelUpBanner.pop { animation: levelPop 1.4s ease forwards; }
-
-        /* Wave announcer */
-        #waveAnnounce {
-            position: absolute; top: 35%; left: 50%;
-            transform: translateX(-50%);
-            font-size: clamp(14px,4vw,20px); font-weight: 900; color: #ff4400;
-            letter-spacing: 4px; pointer-events: none; opacity: 0; text-align: center;
-        }
-        #waveAnnounce.pop { animation: levelPop 2s ease forwards; }
-
-        @keyframes levelPop {
-            0%   { opacity: 0; transform: translate(-50%,-50%) scale(0.7); }
-            15%  { opacity: 1; transform: translate(-50%,-50%) scale(1.08); }
-            35%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
-            80%  { opacity: 1; }
-            100% { opacity: 0; transform: translate(-50%,-50%) scale(1.1); }
-        }
-        @keyframes flicker {
-            0%, 90%, 100% { opacity: 1; }
-            92% { opacity: 0.3; }
-            95% { opacity: 0.85; }
-            97% { opacity: 0.2; }
-        }
-        body::after {
-            content: ''; position: fixed; inset: 0;
-            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 1px, transparent 1px, transparent 3px);
-            pointer-events: none; z-index: 300;
+        body { font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        /* Scrollbar estilizada */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #090d16; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+        .glow-card {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 0 15px -2px rgba(56, 189, 248, 0.08);
         }
     </style>
 </head>
-<body>
-<canvas id="gameCanvas"></canvas>
+<body class="bg-darkbg text-slate-100 min-h-screen flex flex-col justify-between selection:bg-accent selection:text-slate-900">
 
-<div id="hud">
-    <div id="barsPanel">
-        <div class="bar-row">
-            <span class="bar-icon" style="color:#00ff88;">HP</span>
-            <div class="bar-track"><div class="bar-fill" id="hpFill"></div></div>
-            <span class="bar-val" id="hpVal">5/5</span>
+    <!-- HEADER DE LA APLICACIÓN -->
+    <header class="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 py-3.5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center space-x-3">
+                <div class="h-3 w-3 rounded-full bg-accent animate-pulse shadow-lg shadow-sky-500/50"></div>
+                <div>
+                    <h1 class="text-base font-bold tracking-tight mono text-slate-100 flex items-center gap-2">
+                        calculador_y_resolucionador_de_graficas.psc
+                    </h1>
+                    <p class="text-xs text-slate-400">Algoritmo de Mapeo PSeInt & Graficador Matemático</p>
+                </div>
+            </div>
+
+            <!-- Accesos rápidos en la cabecera -->
+            <div class="flex items-center space-x-2">
+                <span class="text-xs px-2.5 py-1 rounded-full bg-slate-900 text-sky-400 mono border border-sky-500/20 font-medium">
+                    PSeInt Strict Mode (21x26)
+                </span>
+                <button onclick="reiniciarDatos()" title="Limpiar y reiniciar todos los campos" class="text-xs px-3 py-1 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 mono border border-rose-500/30 transition flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    <span>Limpiar</span>
+                </button>
+            </div>
         </div>
-        <div class="bar-row">
-            <span class="bar-icon" style="color:#ff8800;">🌡</span>
-            <div class="bar-track"><div class="bar-fill" id="heatFill"></div></div>
-            <span class="bar-val" id="heatVal">0%</span>
+    </header>
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <main class="max-w-5xl mx-auto px-4 py-8 w-full flex-grow space-y-8">
+
+        <!-- BARRA DE EJEMPLOS PRECARGADOS RÁPIDOS -->
+        <div class="bg-slate-900/40 border border-slate-800/80 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <span class="text-slate-400 font-medium flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                ¿Deseas probar rápidamente con un caso de prueba?
+            </span>
+            <div class="flex items-center gap-2">
+                <button onclick="cargarEjemplo('recta')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 transition">
+                    Cargar Recta (Lineal)
+                </button>
+                <button onclick="cargarEjemplo('parabola')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-purple-300 border border-slate-700 transition">
+                    Cargar Curva (Parábola)
+                </button>
+                <button onclick="cargarEjemplo('libre')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 transition">
+                    Cargar Curva Libre
+                </button>
+            </div>
         </div>
-    </div>
-    <div id="scoreWrap">
-        <div id="scoreLabel">puntuación</div>
-        <div id="score">0</div>
-        <div id="bestWrap">mejor: <span id="bestScore">0</span></div>
-    </div>
-    <div id="levelBadge">NIV <span id="levelDisplay">1</span></div>
-    <div id="weaponBadge">🔵 BÁSICA</div>
-    <button id="pauseBtn" onclick="togglePause()">⏸</button>
-</div>
 
-<div id="abilitySlots">
-    <div class="ability-slot" id="slot0" onclick="activateAbility(0)">
-        <span class="slot-icon">?</span><span class="slot-key">1</span>
-        <div class="slot-cd-overlay" id="slot0cd" style="height:0%"></div>
-        <div class="slot-cd-text" id="slot0cdtxt"></div>
-    </div>
-    <div class="ability-slot" id="slot1" onclick="activateAbility(1)">
-        <span class="slot-icon">?</span><span class="slot-key">2</span>
-        <div class="slot-cd-overlay" id="slot1cd" style="height:0%"></div>
-        <div class="slot-cd-text" id="slot1cdtxt"></div>
-    </div>
-</div>
+        <!-- CARD 1: Configuración de Escalas -->
+        <section class="bg-cardbg border border-slate-800 rounded-2xl p-6 glow-card transition duration-200">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-2.5">
+                    <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-accent/10 text-accent text-xs font-bold mono border border-accent/20">01</span>
+                    <div>
+                        <h2 class="text-base font-semibold tracking-wide text-slate-100">Factores de Escala</h2>
+                        <p class="text-xs text-slate-400">Dimensiones de la matriz gráfica de PSeInt: Horizontal = 21, Vertical = 26</p>
+                    </div>
+                </div>
+                <div class="hidden sm:flex items-center gap-2 text-xs mono text-slate-400">
+                    <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800">H = 21</span>
+                    <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800">V = 26</span>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                <!-- Max Y -->
+                <div class="space-y-2 bg-slate-900/60 p-4 rounded-xl border border-slate-800/80">
+                    <div class="flex justify-between items-center">
+                        <label for="valormY" class="block text-sm font-medium text-slate-300">Valor Máximo de Y</label>
+                        <span class="text-xs text-slate-500 mono">Eje Vertical (26 filas)</span>
+                    </div>
+                    <input type="number" id="valormY" step="any" placeholder="Ej. 16 ó 25" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition mono text-base">
+                    <div id="resYm" class="text-xs text-slate-400 mono hidden pt-1 flex items-center justify-between">
+                        <span>Factor valorYm = <span class="text-accent font-semibold">0.0000</span></span>
+                        <span class="text-[10px] text-slate-500">Truncado a 4 dec.</span>
+                    </div>
+                </div>
 
-<div id="overheatBanner">⚠ ARMA SOBRECALENTADA ⚠</div>
-<div id="levelUpBanner">NIVEL SUBIDO</div>
-<div id="waveAnnounce"></div>
+                <!-- Max X -->
+                <div class="space-y-2 bg-slate-900/60 p-4 rounded-xl border border-slate-800/80">
+                    <div class="flex justify-between items-center">
+                        <label for="valormX" class="block text-sm font-medium text-slate-300">Valor Máximo de X</label>
+                        <span class="text-xs text-slate-500 mono">Eje Horizontal (21 columnas)</span>
+                    </div>
+                    <input type="number" id="valormX" step="any" placeholder="Ej. 4 ó 10" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition mono text-base">
+                    <div id="resXm" class="text-xs text-slate-400 mono hidden pt-1 flex items-center justify-between">
+                        <span>Factor valorXm = <span class="text-accent font-semibold">0.0000</span></span>
+                        <span class="text-[10px] text-slate-500">Truncado a 4 dec.</span>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-<!-- Main Menu -->
-<div id="mainMenuScreen" class="overlay-screen visible">
-    <div class="menu-title-main">NEON</div>
-    <div class="menu-title-main" style="margin-top:-16px;color:#ff00aa;text-shadow:0 0 30px #ff00aa,0 0 80px #ff00aa44;">STRIKER</div>
-    <div class="menu-ver">v4.0</div>
-    <div class="menu-tagline">▸ SOBREVIVE ◂ DESTRUYE ▸ EVOLUCIONA ◂</div>
-    <div class="menu-best">MEJOR PUNTUACIÓN: <span id="menuBestScore">0</span></div>
-    <button class="pause-menu-btn accent" onclick="startGame()">[ INICIAR JUEGO ]</button>
-    <button class="pause-menu-btn" onclick="openSettingsFrom('main')">[ APARIENCIA ]</button>
-</div>
+        <!-- CARD 2: Ingreso de Datos (Vectores de 6 elementos) -->
+        <section class="bg-cardbg border border-slate-800 rounded-2xl p-6 glow-card transition duration-200">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-2.5">
+                    <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-accent/10 text-accent text-xs font-bold mono border border-accent/20">02</span>
+                    <div>
+                        <h2 class="text-base font-semibold tracking-wide text-slate-100">Valores de las Series (Dimensión [6])</h2>
+                        <p class="text-xs text-slate-400">Ingresa las coordenadas de los 6 puntos coordenados (X, Y)</p>
+                    </div>
+                </div>
+                <span class="text-xs text-slate-400 mono bg-slate-900 px-2.5 py-1 rounded-full border border-slate-800 hidden sm:inline-block">
+                    Puntos P[1] ... P[6]
+                </span>
+            </div>
 
-<!-- Pause Screen -->
-<div id="pauseScreen" class="overlay-screen">
-    <div class="pause-title">PAUSA</div>
-    <div class="pause-subtitle">EL JUEGO ESTÁ DETENIDO</div>
-    <button class="pause-menu-btn accent" onclick="togglePause()">[ CONTINUAR ]</button>
-    <button class="pause-menu-btn" onclick="openSettingsFrom('pause')">[ APARIENCIA ]</button>
-    <button class="pause-menu-btn" onclick="openWeaponSelect('pause')">[ CAMBIAR ARMA ]</button>
-    <button class="pause-menu-btn" style="color:#ff4444;border-color:rgba(255,68,68,0.3);" onclick="returnToMenu()">[ MENÚ PRINCIPAL ]</button>
-</div>
+            <!-- Contenedores originales para Y y X (Mantiene idénticos los IDs y estructura) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Entradas Y -->
+                <div class="space-y-3 bg-slate-900/40 p-4 rounded-xl border border-slate-800/60">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <h3 class="text-xs font-semibold uppercase tracking-wider text-accent mono flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-accent"></span>
+                            Vector valorY[i] (6 elementos)
+                        </h3>
+                        <span class="text-[11px] text-slate-500 mono">Eje Y</span>
+                    </div>
+                    <div id="inputsYContainer" class="space-y-2">
+                        <!-- Generado dinámicamente por inicializarInputs() -->
+                    </div>
+                </div>
 
-<!-- Settings / Appearance Screen -->
-<div id="settingsScreen" class="overlay-screen">
-    <div class="settings-title">APARIENCIA</div>
-    <div class="settings-subtitle">PERSONALIZA TU EXPERIENCIA</div>
-    <div class="settings-panel">
-        <div class="setting-row">
-            <span class="setting-label">Brillo general</span>
-            <input type="range" class="setting-slider" id="brightnessSlider" min="40" max="160" value="100" oninput="applyBrightness(this.value)">
-        </div>
-        <div class="setting-row">
-            <span class="setting-label">Saturación de colores</span>
-            <input type="range" class="setting-slider" id="satSlider" min="50" max="200" value="100" oninput="applySaturation(this.value)">
-        </div>
-        <div class="setting-row">
-            <span class="setting-label">Color del avatar — núcleo</span>
-            <div class="color-swatch-row" id="avatarCoreColors"></div>
-        </div>
-        <div class="setting-row">
-            <span class="setting-label">Color del avatar — aura</span>
-            <div class="color-swatch-row" id="avatarAuraColors"></div>
-        </div>
-        <div class="setting-row">
-            <span class="setting-label">Estela del disparo</span>
-            <div class="color-swatch-row" id="bulletTrailColors"></div>
-        </div>
-    </div>
-    <button class="settings-back" onclick="closeSettings()">← VOLVER</button>
-</div>
+                <!-- Entradas X -->
+                <div class="space-y-3 bg-slate-900/40 p-4 rounded-xl border border-slate-800/60">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <h3 class="text-xs font-semibold uppercase tracking-wider text-accent mono flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-accent"></span>
+                            Vector valorX[i] (6 elementos)
+                        </h3>
+                        <span class="text-[11px] text-slate-500 mono">Eje X</span>
+                    </div>
+                    <div id="inputsXContainer" class="space-y-2">
+                        <!-- Generado dinámicamente por inicializarInputs() -->
+                    </div>
+                </div>
+            </div>
 
-<!-- Ability Pick Screen -->
-<div id="abilityPickScreen" class="overlay-screen">
-    <div class="pick-title">⚡ ELIGE TU HABILIDAD</div>
-    <div class="pick-subtitle">NIVEL <span id="pickLevelTxt">3</span> DESBLOQUEADO</div>
-    <div class="pick-slot-indicator">SLOT <span id="pickSlotTxt">1</span> — ELIGE UNA OPCIÓN</div>
-    <div id="abilityCards"></div>
-</div>
+            <!-- Botones de Acción (Ejecutar + NUEVO BOTÓN DE REINICIAR) -->
+            <div class="mt-8 pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-4">
+                <!-- Botón de Reinicio Solicitado -->
+                <button type="button" onclick="reiniciarDatos()" class="px-5 py-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-medium text-sm transition duration-200 flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-rose-500/50">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    <span>Reiniciar / Borrar Datos</span>
+                </button>
 
-<!-- Weapon Pick Screen -->
-<div id="weaponPickScreen" class="overlay-screen">
-    <div class="weapon-title">🔫 CAMBIAR MODO DE DISPARO</div>
-    <div class="pick-subtitle" style="margin-bottom:24px;">ELIGE TU ARMA</div>
-    <div id="weaponCards"></div>
-    <button class="settings-back" id="weaponBackBtn" onclick="closeWeaponSelect()">← VOLVER</button>
-</div>
+                <!-- Botón de Ejecutar Algoritmo -->
+                <button type="button" onclick="ejecutarCalculo()" class="bg-gradient-to-r from-accent to-sky-500 hover:from-sky-400 hover:to-accenthover text-slate-950 font-bold px-7 py-2.5 rounded-xl transition duration-200 flex items-center space-x-2 shadow-lg shadow-sky-500/20 focus:outline-none focus:ring-2 focus:ring-accent transform active:scale-95">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    <span>Ejecutar Algoritmo PSeInt</span>
+                </button>
+            </div>
+        </section>
 
-<!-- Game Over -->
-<div id="gameOverScreen">
-    <p class="go-title">GAME OVER</p>
-    <p class="go-label">puntuación final</p>
-    <div id="finalScore">0</div>
-    <div id="newBestBadge">★ NUEVO RÉCORD ★</div>
-    <div id="gobestLabel">mejor puntuación</div>
-    <div id="goBestScore">0</div>
-    <div style="display:flex;gap:0;flex-wrap:wrap;justify-content:center;">
-        <button class="go-btn" onclick="resetGame()">[ REINICIAR ]</button>
-        <button class="go-btn" style="color:#ff00aa;border-color:#ff00aa44;" onclick="returnToMenu()">[ MENÚ ]</button>
-    </div>
-</div>
+        <!-- CARD 3: Resultados y Tablas (Oculto inicialmente) -->
+        <section id="resultSection" class="bg-cardbg border border-slate-800 rounded-2xl p-6 glow-card hidden space-y-6">
+            <div class="flex flex-wrap items-center justify-between border-b border-slate-800 pb-4 gap-3">
+                <div class="flex items-center space-x-2.5">
+                    <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-bold mono border border-emerald-500/20">03</span>
+                    <div>
+                        <h2 class="text-base font-semibold tracking-wide text-slate-100">Tablas de Resultados Procesados</h2>
+                        <p class="text-xs text-slate-400">Coordenadas escaladas para la cuadrícula 21x26 de PSeInt</p>
+                    </div>
+                </div>
+                <span class="text-xs text-emerald-400 mono bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full font-medium flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    Ejecución Exitosa
+                </span>
+            </div>
 
-<script>
-"use strict";
+            <!-- Resumen de Factores Calculados -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 flex items-center justify-between">
+                    <div>
+                        <span class="text-xs text-slate-400 block mono">Factor de Escala Vertical (Ym)</span>
+                        <span class="text-xs text-slate-500">Ymáx / 26</span>
+                    </div>
+                    <span id="badgeYm" class="text-sm font-bold text-accent mono bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">0.0000</span>
+                </div>
+                <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 flex items-center justify-between">
+                    <div>
+                        <span class="text-xs text-slate-400 block mono">Factor de Escala Horizontal (Xm)</span>
+                        <span class="text-xs text-slate-500">Xmáx / 21</span>
+                    </div>
+                    <span id="badgeXm" class="text-sm font-bold text-accent mono bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">0.0000</span>
+                </div>
+            </div>
 
-// ══════════════════════════════════════════════════════
-//  CONSTANTS
-// ══════════════════════════════════════════════════════
-const MAX_HP      = 5;
-const MAX_HEAT    = 100;
-const FIRE_RATE   = 170;
-const HEAT_SHOT   = 6.5;
-const COOL_RATE   = 0.06;
-const PLAYER_R    = 16;
-const PLAYER_SPD  = 0.36;
-const BULLET_SPD  = 1.1;
-const INVUL_TIME  = 1400;
-const PICK_LEVELS = [3,6,9,12,15,18,21,24,28,32];
-const WEAPON_UNLOCK_SCORES = [5000, 12000, 22000, 35000];
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Tabla Resultados Y -->
+                <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+                    <div class="text-xs font-semibold text-slate-300 mono mb-3 flex items-center justify-between">
+                        <span>resultadosY[i]</span>
+                        <span class="text-slate-500 text-[11px]">Truncado a 1 decimal</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm mono">
+                            <thead>
+                                <tr class="border-b border-slate-800 text-slate-500 text-xs">
+                                    <th class="pb-2.5">Índice</th>
+                                    <th class="pb-2.5">Valor Original</th>
+                                    <th class="pb-2.5 text-right">Mapeo PSeInt (Fila)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaYBody" class="divide-y divide-slate-800/50 text-slate-300">
+                                <!-- Dinámico -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-// ── Avatar Appearance ──────────────────────────────
-const AVATAR_CORE_COLORS = ['#00ffff','#ff00aa','#00ff88','#ffaa00','#ffffff','#aa88ff'];
-const AVATAR_AURA_COLORS = ['#00ffff','#ff00aa','#00ff88','#ffaa00','#4488ff','#ff4400'];
-const BULLET_TRAIL_COLS  = ['#00ffff','#ff00aa','#00ff88','#ffdd00','#ff4400','#aa88ff'];
+                <!-- Tabla Resultados X -->
+                <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+                    <div class="text-xs font-semibold text-slate-300 mono mb-3 flex items-center justify-between">
+                        <span>resultadosX[i]</span>
+                        <span class="text-slate-500 text-[11px]">Truncado a 1 decimal</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm mono">
+                            <thead>
+                                <tr class="border-b border-slate-800 text-slate-500 text-xs">
+                                    <th class="pb-2.5">Índice</th>
+                                    <th class="pb-2.5">Valor Original</th>
+                                    <th class="pb-2.5 text-right">Mapeo PSeInt (Col)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaXBody" class="divide-y divide-slate-800/50 text-slate-300">
+                                <!-- Dinámico -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
-let avatarCore  = '#00ffff';
-let avatarAura  = '#00ffff';
-let bulletTrail = '#00ffff';
-let brightness  = 100;
-let saturation  = 100;
+            <!-- BOTÓN DESTACADO PARA GENERAR LA GRÁFICA TRAS OBTENER LOS RESULTADOS MATEMÁTICOS -->
+            <div class="pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-900/50 -mx-6 -mb-6 p-6 rounded-b-2xl">
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-100 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                        Datos matemáticos resueltos exitosamente
+                    </h3>
+                    <p class="text-xs text-slate-400">Genera la gráfica de los puntos para comprobar visual y analíticamente si es recta o curva.</p>
+                </div>
+                <button type="button" id="btnGraficar" onclick="generarGrafica()" class="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold px-6 py-3 rounded-xl transition duration-200 flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20 focus:outline-none focus:ring-2 focus:ring-emerald-400 transform active:scale-95">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                    <span>Graficar Coordenadas y Analizar</span>
+                </button>
+            </div>
+        </section>
 
-function applyBrightness(v){ brightness=v; document.body.style.filter=`brightness(${v}%) saturate(${saturation}%)`; }
-function applySaturation(v){ saturation=v; document.body.style.filter=`brightness(${brightness}%) saturate(${v}%)`; }
+        <!-- CARD 4: Gráfica Interactiva y Comprobación Matemática (NUEVA SECCIÓN) -->
+        <section id="graficaSection" class="bg-cardbg border border-slate-800 rounded-2xl p-6 glow-card hidden space-y-6">
+            <div class="flex flex-wrap items-center justify-between border-b border-slate-800 pb-4 gap-3">
+                <div class="flex items-center space-x-2.5">
+                    <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-sky-500/10 text-sky-400 text-xs font-bold mono border border-sky-500/20">04</span>
+                    <div>
+                        <h2 class="text-base font-semibold tracking-wide text-slate-100">Gráfico Comprobable & Diagnóstico Matemático</h2>
+                        <p class="text-xs text-slate-400">Representación gráfica verificable de los pares ordenados ingresados</p>
+                    </div>
+                </div>
 
-function buildSwatches(containerId, arr, currentGetter, setter, key) {
-    const el = document.getElementById(containerId);
-    el.innerHTML = '';
-    arr.forEach(col => {
-        const sw = document.createElement('div');
-        sw.className = 'color-swatch' + (currentGetter() === col ? ' active' : '');
-        sw.style.background = col;
-        sw.style.boxShadow = `0 0 8px ${col}88`;
-        sw.onclick = () => {
-            setter(col);
-            localStorage.setItem(key, col);
-            buildSwatches(containerId, arr, currentGetter, setter, key);
-        };
-        el.appendChild(sw);
-    });
-}
+                <!-- Controles de la Gráfica -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <!-- Selector de fuente de datos -->
+                    <select id="tipoDatosGrafica" onchange="actualizarGrafica()" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-1.5 mono focus:outline-none focus:border-accent">
+                        <option value="original">Escala Original (X, Y)</option>
+                        <option value="pseint">Mapeo PSeInt (ResX, ResY)</option>
+                    </select>
 
-function openSettingsFrom(from) {
-    settingsFrom = from;
-    if(from === 'pause') { document.getElementById('pauseScreen').classList.remove('visible'); }
-    buildSwatches('avatarCoreColors', AVATAR_CORE_COLORS, ()=>avatarCore, v=>{ avatarCore=v; }, 'ns_avatarCore');
-    buildSwatches('avatarAuraColors', AVATAR_AURA_COLORS, ()=>avatarAura, v=>{ avatarAura=v; }, 'ns_avatarAura');
-    buildSwatches('bulletTrailColors', BULLET_TRAIL_COLS, ()=>bulletTrail, v=>{ bulletTrail=v; }, 'ns_bulletTrail');
-    document.getElementById('brightnessSlider').value = brightness;
-    document.getElementById('satSlider').value = saturation;
-    document.getElementById('settingsScreen').classList.add('visible');
-}
+                    <!-- Selector de curvatura -->
+                    <select id="estiloTrazo" onchange="actualizarGrafica()" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-1.5 mono focus:outline-none focus:border-accent">
+                        <option value="lineal">Trazos Rectos (Segmentos)</option>
+                        <option value="suave">Curva Suavizada (Spline)</option>
+                        <option value="puntos">Solo Puntos Dispersos</option>
+                    </select>
 
-let settingsFrom = 'main';
-function closeSettings() {
-    document.getElementById('settingsScreen').classList.remove('visible');
-    if(settingsFrom === 'pause') document.getElementById('pauseScreen').classList.add('visible');
-    if(settingsFrom === 'main') document.getElementById('mainMenuScreen').classList.add('visible');
-}
+                    <!-- Botón para descargar imagen PNG -->
+                    <button type="button" onclick="descargarGrafica()" title="Descargar gráfica como imagen PNG" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs mono border border-slate-700 transition flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        <span>Exportar PNG</span>
+                    </button>
+                </div>
+            </div>
 
-// Load saved prefs
-try {
-    avatarCore  = localStorage.getItem('ns_avatarCore')  || '#00ffff';
-    avatarAura  = localStorage.getItem('ns_avatarAura')  || '#00ffff';
-    bulletTrail = localStorage.getItem('ns_bulletTrail') || '#00ffff';
-    brightness  = parseInt(localStorage.getItem('ns_brightness') || '100');
-    saturation  = parseInt(localStorage.getItem('ns_saturation') || '100');
-    applyBrightness(brightness);
-} catch(e){}
+            <!-- Panel de Diagnóstico Matemático (Comprobable: recta, parábola o curva) -->
+            <div id="panelDiagnostico" class="p-4 rounded-xl border border-sky-500/20 bg-slate-900/80 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center space-x-2">
+                        <span id="iconoDiagnostico" class="w-3 h-3 rounded-full bg-accent"></span>
+                        <span class="text-xs uppercase tracking-wider text-slate-400 mono font-semibold">Diagnóstico Analítico:</span>
+                        <span id="textoDiagnosticoTipo" class="text-sm font-bold text-accent mono">Línea Recta (Lineal)</span>
+                    </div>
+                    <span id="badgeR2" class="text-xs mono px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                        Coeficiente R² = 1.0000
+                    </span>
+                </div>
+                <p id="textoDiagnosticoDetalle" class="text-xs text-slate-300 leading-relaxed">
+                    Las pendientes entre puntos consecutivos son homogéneas, demostrando que la relación entre X e Y es estrictamente lineal.
+                </p>
+                <div id="formulaAproximada" class="text-xs mono text-sky-400 font-semibold bg-slate-950/70 px-3 py-1.5 rounded-lg border border-slate-800/80 inline-block">
+                    Ecuación de ajuste: y = 2.00x + 0.00
+                </div>
+            </div>
 
-// ── Weapon Definitions ─────────────────────────────
-const WEAPON_DEFS = {
-    basic: {
-        id: 'basic', name: 'BÁSICA', icon: '🔵',
-        desc: 'Disparo único auto-apuntado. Rápido y preciso.',
-        heatPerShot: 6.5, fireRate: 170, unlockScore: 0,
-        fire(px, py, enemies) {
-            const angle = _aimAt(px, py, enemies, 700);
-            _spawnBullet(px, py, angle, BULLET_SPD, { color: avatarCore||'#00ffff', dmg:1, life:900 });
+            <!-- Contenedor del Canvas de la Gráfica -->
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 relative min-h-[380px] flex items-center justify-center">
+                <canvas id="canvasGrafica" class="w-full max-h-[420px]"></canvas>
+            </div>
+
+            <!-- Tabla de Comprobación Paso a Paso de Pendientes (Para verificar por qué es recta o curva) -->
+            <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h4 class="text-xs font-semibold text-slate-300 mono flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5 text-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        Comprobación Numérica Tramo a Tramo (Pendientes locales: m = ΔY / ΔX)
+                    </h4>
+                    <span class="text-[11px] text-slate-500 mono">Puntos ordenados por X</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs mono">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-slate-500">
+                                <th class="pb-2">Tramo</th>
+                                <th class="pb-2">Punto Inicial</th>
+                                <th class="pb-2">Punto Final</th>
+                                <th class="pb-2">ΔX</th>
+                                <th class="pb-2">ΔY</th>
+                                <th class="pb-2 text-right">Pendiente (m)</th>
+                                <th class="pb-2 text-right">Comportamiento</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaPendientesBody" class="divide-y divide-slate-800/60 text-slate-300">
+                            <!-- Dinámico -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-slate-800/80 py-4 text-center text-xs text-slate-500 mono bg-slate-950/40">
+        Traducido directamente de PSeInt Estricto &bull; Mapeo de Coordenadas 26x21 &bull; Visualizador y Analizador Gráfico
+    </footer>
+
+    <!-- LÓGICA JAVASCRIPT -->
+    <script>
+        // Constantes originales del código PSeInt
+        const VALOR_H = 21;
+        const VALOR_V = 26;
+
+        // Variables de estado global
+        let chartInstance = null;
+        let datosCalculados = null;
+
+        /**
+         * Inicializar los 6 inputs dinámicamente como en el bucle Para de PSeInt
+         * Mantiene intacta la lógica original y nombres de IDs (inputY_${i}, inputX_${i})
+         */
+        function inicializarInputs() {
+            const containerY = document.getElementById('inputsYContainer');
+            const containerX = document.getElementById('inputsXContainer');
+
+            containerY.innerHTML = '';
+            containerX.innerHTML = '';
+            
+            for (let i = 0; i < 6; i++) {
+                // Inputs Y
+                const divY = document.createElement('div');
+                divY.className = "flex items-center space-x-3 bg-slate-900/60 p-1.5 rounded-lg border border-slate-800/80 hover:border-slate-700 transition";
+                divY.innerHTML = `
+                    <span class="text-xs mono text-accent font-semibold w-12 pl-1.5">Y[${i+1}]</span>
+                    <input type="number" step="any" id="inputY_${i}" placeholder="0" class="w-full bg-slate-950 border border-slate-700/80 rounded-md px-3 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition mono">
+                `;
+                containerY.appendChild(divY);
+
+                // Inputs X
+                const divX = document.createElement('div');
+                divX.className = "flex items-center space-x-3 bg-slate-900/60 p-1.5 rounded-lg border border-slate-800/80 hover:border-slate-700 transition";
+                divX.innerHTML = `
+                    <span class="text-xs mono text-accent font-semibold w-12 pl-1.5">X[${i+1}]</span>
+                    <input type="number" step="any" id="inputX_${i}" placeholder="0" class="w-full bg-slate-950 border border-slate-700/80 rounded-md px-3 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition mono">
+                `;
+                containerX.appendChild(divX);
+            }
         }
-    },
-    spread: {
-        id: 'spread', name: 'DISPERSIÓN', icon: '🔶',
-        desc: 'Dispara 3 balas en abanico. Mayor cobertura.',
-        heatPerShot: 10, fireRate: 240, unlockScore: 5000,
-        fire(px, py, enemies) {
-            const angle = _aimAt(px, py, enemies, 800);
-            [-0.28, 0, 0.28].forEach(offset => {
-                _spawnBullet(px, py, angle + offset, BULLET_SPD*0.9, { color: '#ffaa00', dmg:1, life:800 });
+
+        /**
+         * NUEVA FUNCIÓN: Reiniciar / Borrar todos los datos puestos y permitir ingresar nuevos
+         * Limpia inputs, tablas, estado matemático, destruye la gráfica y resetea el formulario.
+         */
+        function reiniciarDatos() {
+            // 1. Limpiar campos de escalas
+            const valormY = document.getElementById('valormY');
+            const valormX = document.getElementById('valormX');
+            if (valormY) valormY.value = '';
+            if (valormX) valormX.value = '';
+
+            // 2. Ocultar indicadores de factores
+            const resYm = document.getElementById('resYm');
+            const resXm = document.getElementById('resXm');
+            if (resYm) resYm.classList.add('hidden');
+            if (resXm) resXm.classList.add('hidden');
+
+            // 3. Limpiar todos los inputs de los vectores Y y X
+            for (let i = 0; i < 6; i++) {
+                const inpY = document.getElementById(`inputY_${i}`);
+                const inpX = document.getElementById(`inputX_${i}`);
+                if (inpY) inpY.value = '';
+                if (inpX) inpX.value = '';
+            }
+
+            // 4. Limpiar tablas de resultados
+            const tablaYBody = document.getElementById('tablaYBody');
+            const tablaXBody = document.getElementById('tablaXBody');
+            if (tablaYBody) tablaYBody.innerHTML = '';
+            if (tablaXBody) tablaXBody.innerHTML = '';
+
+            // 5. Ocultar sección de resultados y sección de gráfica
+            const resultSection = document.getElementById('resultSection');
+            const graficaSection = document.getElementById('graficaSection');
+            if (resultSection) resultSection.classList.add('hidden');
+            if (graficaSection) graficaSection.classList.add('hidden');
+
+            // 6. Destruir instancia activa del gráfico
+            if (chartInstance) {
+                chartInstance.destroy();
+                chartInstance = null;
+            }
+
+            // 7. Reiniciar datos calculados en memoria
+            datosCalculados = null;
+
+            // 8. Enfocar el primer campo para comodidad del usuario
+            if (valormY) valormY.focus();
+        }
+
+        /**
+         * NUEVA FUNCIÓN AUXILIAR: Permite cargar ejemplos de prueba instantáneamente
+         * para verificar recta, parábola o curvas con 1 solo clic.
+         */
+        function cargarEjemplo(tipo) {
+            reiniciarDatos();
+            if (tipo === 'recta') {
+                // Función Lineal Recta: y = 3x + 2
+                document.getElementById('valormX').value = 10;
+                document.getElementById('valormY').value = 35;
+                const ejX = [0, 2, 4, 6, 8, 10];
+                const ejY = [2, 8, 14, 20, 26, 32];
+                for (let i = 0; i < 6; i++) {
+                    document.getElementById(`inputX_${i}`).value = ejX[i];
+                    document.getElementById(`inputY_${i}`).value = ejY[i];
+                }
+            } else if (tipo === 'parabola') {
+                // Función Cuadrática Parábola: y = x^2
+                document.getElementById('valormX').value = 5;
+                document.getElementById('valormY').value = 25;
+                const ejX = [0, 1, 2, 3, 4, 5];
+                const ejY = [0, 1, 4, 9, 16, 25];
+                for (let i = 0; i < 6; i++) {
+                    document.getElementById(`inputX_${i}`).value = ejX[i];
+                    document.getElementById(`inputY_${i}`).value = ejY[i];
+                }
+            } else if (tipo === 'libre') {
+                // Función No Lineal / Onda libre
+                document.getElementById('valormX').value = 15;
+                document.getElementById('valormY').value = 30;
+                const ejX = [1, 3, 6, 9, 12, 15];
+                const ejY = [5, 18, 12, 28, 15, 29];
+                for (let i = 0; i < 6; i++) {
+                    document.getElementById(`inputX_${i}`).value = ejX[i];
+                    document.getElementById(`inputY_${i}`).value = ejY[i];
+                }
+            }
+            // Ejecutar cálculo automáticamente para comodidad
+            ejecutarCalculo();
+        }
+
+        /**
+         * Lógica exacta del algoritmo PSeInt al hacer clic en Ejecutar
+         * Conserva la fórmula original de cálculo y truncado estricto
+         */
+        function ejecutarCalculo() {
+            const rawValormY = parseFloat(document.getElementById('valormY').value);
+            const rawValormX = parseFloat(document.getElementById('valormX').value);
+
+            if (isNaN(rawValormY) || isNaN(rawValormX)) {
+                alert("Por favor ingresa los valores máximos de Y y X antes de ejecutar.");
+                return;
+            }
+
+            if (rawValormY <= 0 || rawValormX <= 0) {
+                alert("Los valores máximos deben ser mayores a cero para realizar el escalado.");
+                return;
+            }
+
+            // 1. Cálculo de factores con 4 decimales exactos truncados (tal cual el algoritmo PSeInt original)
+            const valorYm = Math.trunc((rawValormY / VALOR_V) * 10000) / 10000;
+            const valorXm = Math.trunc((rawValormX / VALOR_H) * 10000) / 10000;
+
+            // Mostrar resultados intermedios de los factores
+            document.getElementById('resYm').classList.remove('hidden');
+            document.getElementById('resYm').querySelector('span span').textContent = valorYm.toFixed(4);
+            
+            document.getElementById('resXm').classList.remove('hidden');
+            document.getElementById('resXm').querySelector('span span').textContent = valorXm.toFixed(4);
+
+            // Actualizar badges en la sección de resultados
+            const badgeYm = document.getElementById('badgeYm');
+            const badgeXm = document.getElementById('badgeXm');
+            if (badgeYm) badgeYm.textContent = valorYm.toFixed(4);
+            if (badgeXm) badgeXm.textContent = valorXm.toFixed(4);
+
+            const resultadosYBody = document.getElementById('tablaYBody');
+            const resultadosXBody = document.getElementById('tablaXBody');
+            resultadosYBody.innerHTML = '';
+            resultadosXBody.innerHTML = '';
+
+            const puntosOriginales = [];
+            const puntosProcesados = [];
+
+            // Bucle Para idéntico al de PSeInt para vectores Y y X (con truncado a 1 decimal: * 10 / 10)
+            for (let i = 0; i < 6; i++) {
+                const valY = parseFloat(document.getElementById(`inputY_${i}`).value) || 0;
+                const valX = parseFloat(document.getElementById(`inputX_${i}`).value) || 0;
+
+                const resY = Math.trunc((valY / valorYm) * 10) / 10;
+                const resX = Math.trunc((valX / valorXm) * 10) / 10;
+
+                puntosOriginales.push({ index: i + 1, x: valX, y: valY });
+                puntosProcesados.push({ index: i + 1, x: resX, y: resY });
+
+                // Fila Y
+                const trY = document.createElement('tr');
+                trY.innerHTML = `
+                    <td class="py-2.5 text-slate-500">[${i+1}]</td>
+                    <td class="py-2.5 text-slate-300 font-mono">${valY}</td>
+                    <td class="py-2.5 text-right font-bold text-accent font-mono">${resY.toFixed(1)}</td>
+                `;
+                resultadosYBody.appendChild(trY);
+
+                // Fila X
+                const trX = document.createElement('tr');
+                trX.innerHTML = `
+                    <td class="py-2.5 text-slate-500">[${i+1}]</td>
+                    <td class="py-2.5 text-slate-300 font-mono">${valX}</td>
+                    <td class="py-2.5 text-right font-bold text-accent font-mono">${resX.toFixed(1)}</td>
+                `;
+                resultadosXBody.appendChild(trX);
+            }
+
+            // Almacenar el estado para la función de graficado
+            datosCalculados = {
+                rawValormY,
+                rawValormX,
+                valorYm,
+                valorXm,
+                puntosOriginales,
+                puntosProcesados
+            };
+
+            // Mostrar sección de resultados
+            document.getElementById('resultSection').classList.remove('hidden');
+            document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        /**
+         * NUEVA FUNCIÓN: Comprueba matemáticamente si los puntos forman una Línea Recta,
+         * una Curva Convexa (parábola), Cóncava, o Irregular.
+         * Entrega datos numéricos comprobables: pendientes tramo a tramo, R², ecuación.
+         */
+        function analizarComportamientoMatematico(puntos) {
+            if (!puntos || puntos.length < 2) {
+                return { tipo: 'Insuficientes datos', detalles: 'Se requieren al menos 2 puntos.', pendientes: [], r2: 0 };
+            }
+
+            // Ordenar una copia de los puntos por la coordenada X para análisis secuencial
+            const pts = [...puntos].sort((a, b) => a.x - b.x);
+            const n = pts.length;
+
+            // 1. Análisis de pendientes sucesivas tramo por tramo (m = ΔY / ΔX)
+            const pendientes = [];
+            let pendientesConstantes = true;
+            let pendientesCrecientes = true;
+            let pendientesDecrecientes = true;
+            const EPSILON = 0.05; // Margen de tolerancia para truncamientos
+
+            for (let i = 0; i < n - 1; i++) {
+                const dx = pts[i + 1].x - pts[i].x;
+                const dy = pts[i + 1].y - pts[i].y;
+                let m = 0;
+                let estado = 'Normal';
+
+                if (dx === 0) {
+                    m = Infinity;
+                    estado = 'Vertical (Indefinida)';
+                    pendientesConstantes = false;
+                } else {
+                    m = dy / dx;
+                }
+
+                pendientes.push({
+                    tramo: `P[${pts[i].index}] → P[${pts[i + 1].index}]`,
+                    p1: `(${pts[i].x}, ${pts[i].y})`,
+                    p2: `(${pts[i + 1].x}, ${pts[i + 1].y})`,
+                    dx: Number(dx.toFixed(2)),
+                    dy: Number(dy.toFixed(2)),
+                    m: m === Infinity ? '∞' : Number(m.toFixed(3)),
+                    mNum: m
+                });
+            }
+
+            // Evaluar tendencia de las pendientes
+            for (let i = 1; i < pendientes.length; i++) {
+                const mPrev = pendientes[i - 1].mNum;
+                const mCurr = pendientes[i].mNum;
+                const diff = mCurr - mPrev;
+
+                if (Math.abs(diff) > EPSILON) {
+                    pendientesConstantes = false;
+                }
+                if (diff <= EPSILON) {
+                    pendientesCrecientes = false;
+                }
+                if (diff >= -EPSILON) {
+                    pendientesDecrecientes = false;
+                }
+            }
+
+            // 2. Regresión Lineal por mínimos cuadrados y Coeficiente de Determinación R²
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+            pts.forEach(p => {
+                sumX += p.x;
+                sumY += p.y;
+                sumXY += p.x * p.y;
+                sumX2 += p.x * p.x;
+                sumY2 += p.y * p.y;
+            });
+
+            const denomSlope = (n * sumX2 - sumX * sumX);
+            let slope = 0, intercept = 0, r2 = 0;
+
+            if (denomSlope !== 0) {
+                slope = (n * sumXY - sumX * sumY) / denomSlope;
+                intercept = (sumY - slope * sumX) / n;
+
+                const denomR = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+                if (denomR !== 0) {
+                    const r = (n * sumXY - sumX * sumY) / denomR;
+                    r2 = r * r;
+                } else {
+                    r2 = 1; // Línea horizontal plana
+                }
+            }
+
+            // Diagnóstico y clasificación matemática
+            let tipo = '';
+            let colorClase = 'text-accent';
+            let colorBg = 'bg-accent';
+            let descripcion = '';
+
+            if (pendientesConstantes || r2 >= 0.998) {
+                tipo = 'Línea Recta (Comportamiento Lineal)';
+                colorClase = 'text-emerald-400';
+                colorBg = 'bg-emerald-400';
+                descripcion = `Todas las pendientes entre puntos consecutivos son constantes (m ≈ ${slope.toFixed(2)}). Cumple de manera comprobable con una ecuación de recta de primer grado.`;
+            } else if (pendientesCrecientes) {
+                tipo = 'Curva Convexa / Cuadrática (Pendiente Creciente)';
+                colorClase = 'text-sky-400';
+                colorBg = 'bg-sky-400';
+                descripcion = `La tasa de cambio (pendiente) aumenta sucesivamente tramo a tramo (ΔY/ΔX creciente), característica matemática de una parábola o función exponencial con concavidad hacia arriba.`;
+            } else if (pendientesDecrecientes) {
+                tipo = 'Curva Cóncava (Pendiente Decreciente)';
+                colorClase = 'text-purple-400';
+                colorBg = 'bg-purple-400';
+                descripcion = `La tasa de cambio (pendiente) disminuye progresivamente conforme X aumenta, describiendo una curva cóncava o de crecimiento logarítmico.`;
+            } else if (r2 >= 0.92) {
+                tipo = 'Curva Suave con Tendencia Lineal';
+                colorClase = 'text-amber-400';
+                colorBg = 'bg-amber-400';
+                descripcion = `Presenta una alta correlación general (R² = ${r2.toFixed(4)}), pero con curvatura perceptible en los tramos intermedios.`;
+            } else {
+                tipo = 'Curva Irregular / Polinómica Libre';
+                colorClase = 'text-rose-400';
+                colorBg = 'bg-rose-400';
+                descripcion = `Las pendientes varían en magnitud y sentido, describiendo una curva oscilatoria, polinómica o libre.`;
+            }
+
+            // Asignar comportamiento textual a cada tramo
+            pendientes.forEach((p, idx) => {
+                if (idx === 0) {
+                    p.comportamiento = 'Pendiente Inicial';
+                } else {
+                    const diff = p.mNum - pendientes[idx - 1].mNum;
+                    if (Math.abs(diff) <= EPSILON) p.comportamiento = 'Constante (=)';
+                    else if (diff > 0) p.comportamiento = 'Aumenta (↗)';
+                    else p.comportamiento = 'Disminuye (↘)';
+                }
+            });
+
+            const signoIntercept = intercept >= 0 ? '+ ' : '- ';
+            const formulaStr = `y = ${slope.toFixed(2)}x ${signoIntercept}${Math.abs(intercept).toFixed(2)}`;
+
+            return {
+                tipo,
+                colorClase,
+                colorBg,
+                descripcion,
+                r2: Number(r2.toFixed(4)),
+                slope: Number(slope.toFixed(2)),
+                intercept: Number(intercept.toFixed(2)),
+                formulaStr,
+                pendientes
+            };
+        }
+
+        /**
+         * NUEVA FUNCIÓN: Generar la gráfica solicitada y renderizar el panel de comprobación
+         */
+        function generarGrafica() {
+            if (!datosCalculados) {
+                alert("Primero debes ejecutar el cálculo para resolver las matemáticas.");
+                return;
+            }
+
+            const graficaSection = document.getElementById('graficaSection');
+            graficaSection.classList.remove('hidden');
+
+            actualizarGrafica();
+
+            // Desplazar suavemente a la gráfica
+            graficaSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        /**
+         * Actualiza el gráfico con Chart.js según las opciones seleccionadas (escala, trazo, etc.)
+         */
+        function actualizarGrafica() {
+            if (!datosCalculados) return;
+
+            const tipoDatos = document.getElementById('tipoDatosGrafica').value;
+            const estiloTrazo = document.getElementById('estiloTrazo').value;
+
+            // Determinar conjunto de puntos
+            const puntosSeleccionados = tipoDatos === 'original' 
+                ? datosCalculados.puntosOriginales 
+                : datosCalculados.puntosProcesados;
+
+            // Realizar comprobación matemática
+            const analisis = analizarComportamientoMatematico(puntosSeleccionados);
+
+            // Actualizar panel de diagnóstico
+            document.getElementById('textoDiagnosticoTipo').textContent = analisis.tipo;
+            document.getElementById('textoDiagnosticoTipo').className = `text-sm font-bold mono ${analisis.colorClase}`;
+            document.getElementById('iconoDiagnostico').className = `w-3 h-3 rounded-full ${analisis.colorBg} animate-pulse`;
+            document.getElementById('badgeR2').textContent = `Coeficiente R² = ${analisis.r2.toFixed(4)}`;
+            document.getElementById('textoDiagnosticoDetalle').textContent = analisis.descripcion;
+            document.getElementById('formulaAproximada').textContent = `Ajuste Lineal: ${analisis.formulaStr} | m = ${analisis.slope}`;
+
+            // Llenar tabla de comprobación de pendientes tramo a tramo
+            const tablaPendientesBody = document.getElementById('tablaPendientesBody');
+            tablaPendientesBody.innerHTML = '';
+            analisis.pendientes.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-800/40 transition";
+                tr.innerHTML = `
+                    <td class="py-2 font-semibold text-accent">${item.tramo}</td>
+                    <td class="py-2 text-slate-400">${item.p1}</td>
+                    <td class="py-2 text-slate-400">${item.p2}</td>
+                    <td class="py-2 text-slate-300 font-mono">${item.dx}</td>
+                    <td class="py-2 text-slate-300 font-mono">${item.dy}</td>
+                    <td class="py-2 text-right font-bold text-slate-100 font-mono">${item.m}</td>
+                    <td class="py-2 text-right text-xs ${item.comportamiento.includes('Constante') ? 'text-emerald-400' : 'text-sky-300'}">${item.comportamiento}</td>
+                `;
+                tablaPendientesBody.appendChild(tr);
+            });
+
+            // Preparar datasets para Chart.js
+            const ctx = document.getElementById('canvasGrafica').getContext('2d');
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            // Configurar tensión según el estilo de trazo seleccionado
+            let lineTension = 0; // Segmentos rectos
+            let showLine = true;
+            if (estiloTrazo === 'suave') {
+                lineTension = 0.35; // Curva suavizada
+            } else if (estiloTrazo === 'puntos') {
+                showLine = false;
+            }
+
+            // Datos formateados como objetos {x, y}
+            const dataPoints = puntosSeleccionados.map(p => ({ x: p.x, y: p.y, index: p.index }));
+
+            // Dataset de la curva/recta conectada
+            const datasets = [{
+                label: tipoDatos === 'original' ? 'Puntos Originales (X, Y)' : 'Mapeo PSeInt (ResX, ResY)',
+                data: dataPoints,
+                borderColor: '#38bdf8',
+                backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                pointBackgroundColor: '#0ea5e9',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 6,
+                pointHoverRadius: 9,
+                showLine: showLine,
+                tension: lineTension,
+                fill: false,
+                borderWidth: 3
+            }];
+
+            const tituloEjeX = tipoDatos === 'original' 
+                ? `Eje X (Máximo: ${datosCalculados.rawValormX})` 
+                : `Columna PSeInt (0 a ${VALOR_H})`;
+            const tituloEjeY = tipoDatos === 'original' 
+                ? `Eje Y (Máximo: ${datosCalculados.rawValormY})` 
+                : `Fila PSeInt (0 a ${VALOR_V})`;
+
+            chartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#cbd5e1',
+                                font: { family: 'JetBrains Mono', size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#0f172a',
+                            titleColor: '#38bdf8',
+                            bodyColor: '#f1f5f9',
+                            borderColor: '#334155',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    const raw = context.raw;
+                                    return `Punto P[${raw.index}]: (${raw.x}, ${raw.y})`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: tituloEjeX,
+                                color: '#94a3b8',
+                                font: { family: 'JetBrains Mono', size: 12, weight: '600' }
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.1)'
+                            },
+                            ticks: {
+                                color: '#94a3b8',
+                                font: { family: 'JetBrains Mono', size: 11 }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: tituloEjeY,
+                                color: '#94a3b8',
+                                font: { family: 'JetBrains Mono', size: 12, weight: '600' }
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.1)'
+                            },
+                            ticks: {
+                                color: '#94a3b8',
+                                font: { family: 'JetBrains Mono', size: 11 }
+                            }
+                        }
+                    }
+                }
             });
         }
-    },
-    sniper: {
-        id: 'sniper', name: 'FRANCOTIRADOR', icon: '🔴',
-        desc: 'Un disparo lento pero muy potente y penetrante.',
-        heatPerShot: 15, fireRate: 420, unlockScore: 12000,
-        fire(px, py, enemies) {
-            const angle = _aimAt(px, py, enemies, 9999);
-            _spawnBullet(px, py, angle, BULLET_SPD*1.8, { color: '#ff0044', dmg:4, life:1200, piercing:5, r:7, isSniper:true });
-        }
-    },
-    burst: {
-        id: 'burst', name: 'RÁFAGA', icon: '🟡',
-        desc: 'Dispara 5 balas en ráfaga rápida con pequeño spread.',
-        heatPerShot: 4, fireRate: 80, unlockScore: 22000,
-        fire(px, py, enemies) {
-            const angle = _aimAt(px, py, enemies, 700);
-            const spread = (Math.random()-0.5)*0.18;
-            _spawnBullet(px, py, angle+spread, BULLET_SPD*1.1, { color:'#ffff00', dmg:1, life:750, r:4 });
-        }
-    },
-    laser: {
-        id: 'laser', name: 'LÁSER', icon: '🟣',
-        desc: 'Rayo continuo que atraviesa todos los enemigos.',
-        heatPerShot: 3.5, fireRate: 60, unlockScore: 35000,
-        fire(px, py, enemies) {
-            const angle = _aimAt(px, py, enemies, 9999);
-            _spawnBullet(px, py, angle, BULLET_SPD*2.2, { color:'#cc00ff', dmg:0.6, life:500, piercing:999, r:4, isLaser:true });
-        }
-    }
-};
 
-let currentWeapon = 'basic';
-let unlockedWeapons = new Set(['basic']);
+        /**
+         * NUEVA FUNCIÓN: Descarga el gráfico actual como imagen PNG
+         */
+        function descargarGrafica() {
+            const canvas = document.getElementById('canvasGrafica');
+            if (!canvas) return;
 
-function _aimAt(px, py, enemies, maxRange) {
-    let target=null, minD=maxRange;
-    enemies.forEach(e=>{ const d=Math.hypot(e.x-px,e.y-py); if(d<minD){minD=d;target=e;} });
-    return target ? Math.atan2(target.y-py, target.x-px) : -Math.PI/2;
-}
-
-function _spawnBullet(px, py, angle, spd, props) {
-    bullets.push({ x:px, y:py, vx:Math.cos(angle)*spd, vy:Math.sin(angle)*spd, ...props });
-}
-
-// ── Weapon Select UI ──────────────────────────────
-let weaponSelectFrom = 'pause';
-
-function openWeaponSelect(from) {
-    weaponSelectFrom = from;
-    if(from === 'pause') document.getElementById('pauseScreen').classList.remove('visible');
-    const container = document.getElementById('weaponCards');
-    container.innerHTML = '';
-    Object.values(WEAPON_DEFS).forEach(def => {
-        const unlocked = unlockedWeapons.has(def.id);
-        const card = document.createElement('div');
-        card.className = 'weapon-card' + (def.id === currentWeapon ? ' current-weapon' : '');
-        if(!unlocked) card.style.opacity = '0.4';
-        card.innerHTML = `
-            <span class="w-icon">${def.icon}</span>
-            <div class="w-name">${def.name}${!unlocked ? ` 🔒 ${def.unlockScore.toLocaleString()}` : ''}</div>
-            <div class="w-desc">${def.desc}</div>
-        `;
-        if(unlocked) card.onclick = () => { currentWeapon = def.id; updateWeaponBadge(); closeWeaponSelect(); };
-        container.appendChild(card);
-    });
-    document.getElementById('weaponPickScreen').classList.add('visible');
-}
-
-function closeWeaponSelect() {
-    document.getElementById('weaponPickScreen').classList.remove('visible');
-    if(weaponSelectFrom === 'pause') document.getElementById('pauseScreen').classList.add('visible');
-}
-
-function updateWeaponBadge() {
-    const w = WEAPON_DEFS[currentWeapon];
-    const el = document.getElementById('weaponBadge');
-    el.textContent = w.icon + ' ' + w.name;
-    el.style.borderColor = `rgba(255,255,255,0.25)`;
-}
-
-// ── Ability Definitions ───────────────────────────
-const ABILITY_DEFS = {
-    fireball: {
-        id:'fireball', name:'BOLA DE FUEGO', icon:'🔥',
-        desc:'Dispara una bola de fuego que quema y atraviesa hasta 4 enemigos.',
-        cssClass:'fire-type', cardClass:'fire-card', cooldown:4000, color:'#ff6400',
-        use(px,py){ fireFireball(px,py); }
-    },
-    ice: {
-        id:'ice', name:'CAMPO DE HIELO', icon:'❄️',
-        desc:'Congela todos los enemigos en pantalla por 2.5 segundos.',
-        cssClass:'ice-type', cardClass:'ice-card', cooldown:6500, color:'#00c8ff',
-        use(px,py){ fireIce(px,py); }
-    },
-    electric: {
-        id:'electric', name:'RAYO ELÉCTRICO', icon:'⚡',
-        desc:'Encadena daño eléctrico entre hasta 8 enemigos cercanos.',
-        cssClass:'electric-type', cardClass:'electric-card', cooldown:5000, color:'#ffff00',
-        use(px,py){ fireElectric(px,py); }
-    },
-    nova: {
-        id:'nova', name:'NOVA OSCURA', icon:'💜',
-        desc:'Explosión gravitacional que empuja y destruye todo en pantalla.',
-        cssClass:'nova-type', cardClass:'nova-card', cooldown:8500, color:'#c800ff',
-        use(px,py){ fireNova(px,py); }
-    },
-    shield: {
-        id:'shield', name:'ESCUDO DE PLASMA', icon:'🛡️',
-        desc:'Invulnerabilidad + regenera 1 HP. Refleja proyectiles enemigos.',
-        cssClass:'shield-type', cardClass:'shield-card', cooldown:11000, color:'#00ff96',
-        use(px,py){ fireShield(px,py); }
-    },
-    drain: {
-        id:'drain', name:'DRENAJE VITAL', icon:'❤️‍🔥',
-        desc:'Absorbe vida de todos los enemigos cercanos. Cura al jugador.',
-        cssClass:'drain-type', cardClass:'drain-card', cooldown:7000, color:'#ff0064',
-        use(px,py){ fireDrain(px,py); }
-    },
-    timeStop: {
-        id:'timeStop', name:'DETENCIÓN', icon:'⏱️',
-        desc:'Congela el tiempo para todos los enemigos por 4 segundos.',
-        cssClass:'time-type', cardClass:'time-card', cooldown:10000, color:'#ffc800',
-        use(px,py){ fireTimeStop(px,py); }
-    },
-    vortex: {
-        id:'vortex', name:'VÓRTICE', icon:'🌀',
-        desc:'Crea un vórtice que succiona y destruye enemigos cercanos.',
-        cssClass:'vortex-type', cardClass:'vortex-card', cooldown:7500, color:'#00ffc8',
-        use(px,py){ fireVortex(px,py); }
-    },
-    missiles: {
-        id:'missiles', name:'MISILES x6', icon:'🚀',
-        desc:'Lanza 6 misiles autodirigidos que explotan al impacto.',
-        cssClass:'missile-type', cardClass:'missile-card', cooldown:6000, color:'#ff8000',
-        use(px,py){ fireMissiles(px,py); }
-    },
-};
-
-// ══════════════════════════════════════════════════════
-//  STATE
-// ══════════════════════════════════════════════════════
-let width, height;
-let score, level, lastLevel, isGameOver, lastTime, isPaused;
-let shake, shakeDecay;
-let player, enemies, bullets, particles, floaters;
-let spawnTimer;
-let afterImages, shockwaves;
-let lightnings;
-let frozenTimer, timeStopTimer;
-let shieldActive;
-let gridOffset = 0;
-let bestScore = parseInt(localStorage.getItem('ns_best')||'0');
-let abilitySlots;
-let pickingSlot = -1;
-let pickedAtLevel;
-let vortices = [];
-let missiles = [];
-
-const ctrl = {
-    joy:  { active:false, id:null, sx:0, sy:0, dx:0, dy:0 },
-    fire: { x:0, y:0, r:44, active:false, id:null },
-    dash: { x:0, y:0, r:33, cd:0, CD:1600 },
-};
-
-// ══════════════════════════════════════════════════════
-//  CANVAS / RESIZE
-// ══════════════════════════════════════════════════════
-const canvas = document.getElementById('gameCanvas');
-const ctx    = canvas.getContext('2d');
-
-function resize() {
-    width  = canvas.width  = window.innerWidth;
-    height = canvas.height = window.innerHeight;
-    ctrl.fire.x = width - 80;
-    ctrl.fire.y = height - 160;
-    ctrl.dash.x = width - 80;
-    ctrl.dash.y = height - 60;
-}
-window.addEventListener('resize', resize);
-resize();
-
-// ══════════════════════════════════════════════════════
-//  MENU LOGIC
-// ══════════════════════════════════════════════════════
-function startGame() {
-    document.getElementById('mainMenuScreen').classList.remove('visible');
-    document.getElementById('menuBestScore').textContent = Math.floor(bestScore);
-    resetGame();
-}
-
-function returnToMenu() {
-    isGameOver = true; isPaused = false;
-    document.getElementById('pauseScreen').classList.remove('visible');
-    document.getElementById('gameOverScreen').classList.remove('visible');
-    document.getElementById('gameOverScreen').style.display = 'none';
-    document.getElementById('mainMenuScreen').classList.add('visible');
-    document.getElementById('menuBestScore').textContent = Math.floor(bestScore);
-}
-
-function togglePause() {
-    if(isGameOver || pickingSlot >= 0) return;
-    isPaused = !isPaused;
-    document.getElementById('pauseScreen').classList.toggle('visible', isPaused);
-    document.getElementById('pauseBtn').textContent = isPaused ? '▶' : '⏸';
-    if(!isPaused) { lastTime = performance.now(); requestAnimationFrame(update); }
-}
-
-// ══════════════════════════════════════════════════════
-//  INPUT
-// ══════════════════════════════════════════════════════
-canvas.addEventListener('pointerdown', e => {
-    if(isGameOver || isPaused) return;
-    if(pickingSlot >= 0) return;
-    e.preventDefault();
-    const px = e.clientX, py = e.clientY;
-    if(Math.hypot(px-ctrl.fire.x, py-ctrl.fire.y) < ctrl.fire.r+14) {
-        ctrl.fire.active = true; ctrl.fire.id = e.pointerId;
-        canvas.setPointerCapture(e.pointerId); return;
-    }
-    if(Math.hypot(px-ctrl.dash.x, py-ctrl.dash.y) < ctrl.dash.r+14) {
-        _doDash(); return;
-    }
-    if(!ctrl.joy.active && px < width*0.62) {
-        ctrl.joy.active = true; ctrl.joy.id = e.pointerId;
-        ctrl.joy.sx = px; ctrl.joy.sy = py; ctrl.joy.dx = 0; ctrl.joy.dy = 0;
-        canvas.setPointerCapture(e.pointerId);
-    }
-}, { passive:false });
-
-canvas.addEventListener('pointermove', e => {
-    e.preventDefault();
-    if(ctrl.joy.active && e.pointerId === ctrl.joy.id) {
-        const dx=e.clientX-ctrl.joy.sx, dy=e.clientY-ctrl.joy.sy;
-        const d=Math.hypot(dx,dy), maxR=55, clamped=Math.min(d,maxR);
-        ctrl.joy.dx = d>0 ? (dx/d)*(clamped/maxR) : 0;
-        ctrl.joy.dy = d>0 ? (dy/d)*(clamped/maxR) : 0;
-    }
-}, { passive:false });
-
-canvas.addEventListener('pointerup', e => {
-    if(e.pointerId===ctrl.joy.id) { ctrl.joy.active=false; ctrl.joy.dx=0; ctrl.joy.dy=0; }
-    if(e.pointerId===ctrl.fire.id) { ctrl.fire.active=false; }
-});
-canvas.addEventListener('pointercancel', e => {
-    if(e.pointerId===ctrl.joy.id) { ctrl.joy.active=false; ctrl.joy.dx=0; ctrl.joy.dy=0; }
-    if(e.pointerId===ctrl.fire.id) { ctrl.fire.active=false; }
-});
-
-document.addEventListener('keydown', e => {
-    if(e.key==='1') activateAbility(0);
-    if(e.key==='2') activateAbility(1);
-    if(e.key==='Escape'||e.key==='p'||e.key==='P') togglePause();
-    if(e.key==='w'||e.key==='W') openWeaponSelect('pause');
-});
-
-// ══════════════════════════════════════════════════════
-//  DASH
-// ══════════════════════════════════════════════════════
-function _doDash() {
-    if(ctrl.dash.cd>0) return;
-    const fromX=player.x, fromY=player.y;
-    const dist=200;
-    const dx=ctrl.joy.active&&(Math.abs(ctrl.joy.dx)+Math.abs(ctrl.joy.dy))>0.1?ctrl.joy.dx:0;
-    const dy=ctrl.joy.active&&(Math.abs(ctrl.joy.dx)+Math.abs(ctrl.joy.dy))>0.1?ctrl.joy.dy:-1;
-    const toX=Math.max(PLAYER_R,Math.min(width-PLAYER_R,fromX+dx*dist));
-    const toY=Math.max(PLAYER_R,Math.min(height-PLAYER_R,fromY+dy*dist));
-    for(let i=0;i<3;i++)
-        afterImages.push({x:fromX,y:fromY,r:PLAYER_R+i*6,life:0.7-i*0.15,decay:0.022});
-    for(let i=0;i<22;i++){
-        const a=Math.random()*Math.PI*2,s=1+Math.random()*4;
-        particles.push({x:fromX,y:fromY,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.6+Math.random()*0.4,maxLife:1.0,color:avatarAura,size:1.5+Math.random()*2});
-    }
-    player.x=toX; player.y=toY;
-    player.invul=Math.max(player.invul,350);
-    ctrl.dash.cd=ctrl.dash.CD;
-    shake=10;
-    for(let i=0;i<28;i++){
-        const a=Math.random()*Math.PI*2,s=2+Math.random()*7;
-        particles.push({x:toX,y:toY,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.5+Math.random()*0.5,maxLife:1.0,color:i%3===0?'#ffffff':avatarCore,size:1.5+Math.random()*3});
-    }
-    shockwaves.push({x:toX,y:toY,r:PLAYER_R,maxR:80,life:1.0,color:avatarAura});
-}
-
-// ══════════════════════════════════════════════════════
-//  ABILITY SYSTEM
-// ══════════════════════════════════════════════════════
-function activateAbility(slotIdx) {
-    if(isGameOver||pickingSlot>=0||isPaused) return;
-    const slot=abilitySlots[slotIdx];
-    if(!slot||!slot.def||slot.cd>0) return;
-    slot.def.use(player.x,player.y);
-    slot.cd=slot.def.cooldown;
-}
-
-// ── Fireball ──
-function fireFireball(px,py) {
-    let target=null,minD=Infinity;
-    enemies.forEach(e=>{const d=Math.hypot(e.x-px,e.y-py);if(d<minD){minD=d;target=e;}});
-    const angle=target?Math.atan2(target.y-py,target.x-px):-Math.PI/2;
-    bullets.push({x:px,y:py,vx:Math.cos(angle)*BULLET_SPD*1.5,vy:Math.sin(angle)*BULLET_SPD*1.5,life:2000,isFireball:true,piercing:4,r:11,dmg:3,color:'#ff6400'});
-    for(let i=0;i<20;i++){const a=Math.random()*Math.PI*2,s=2+Math.random()*5;particles.push({x:px,y:py,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.5+Math.random()*0.4,maxLife:1,color:'#ff6400',size:2+Math.random()*3});}
-    spawnFloater(px,py-30,'🔥 FIREBALL','#ff6400');
-}
-
-// ── Ice ──
-function fireIce(px,py) {
-    frozenTimer=2500;
-    shockwaves.push({x:px,y:py,r:20,maxR:Math.max(width,height),life:1.0,color:'#00c8ff'});
-    for(let i=0;i<40;i++){const a=Math.random()*Math.PI*2,s=3+Math.random()*9;particles.push({x:px,y:py,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.7+Math.random()*0.5,maxLife:1.2,color:'#00c8ff',size:2+Math.random()*4});}
-    enemies.forEach(e=>e.frozen=true);
-    spawnFloater(px,py-30,'❄️ CONGELADO','#00c8ff');
-}
-
-// ── Electric ──
-function fireElectric(px,py) {
-    if(enemies.length===0) return;
-    const sorted=[...enemies].sort((a,b)=>Math.hypot(a.x-px,a.y-py)-Math.hypot(b.x-px,b.y-py));
-    const chain=sorted.slice(0,Math.min(8,sorted.length));
-    let prev={x:px,y:py};
-    for(const e of chain){
-        lightnings.push({x1:prev.x,y1:prev.y,x2:e.x,y2:e.y,life:0.5,color:'#ffff00'});
-        e.hp-=3; e.flash=120;
-        if(e.hp<=0){score+=e.pts;spawnParticle(e.x,e.y,e.color,9,1.0,14);spawnFloater(e.x,e.y-e.r,'+'+e.pts,e.color);}
-        prev=e;
-    }
-    enemies=enemies.filter(e=>e.hp>0);
-    shake=Math.max(shake,16);
-    spawnFloater(px,py-30,'⚡ CHAIN x'+chain.length,'#ffff00');
-}
-
-// ── Nova ──
-function fireNova(px,py) {
-    shockwaves.push({x:px,y:py,r:20,maxR:Math.max(width,height)*1.5,life:1.0,color:'#c800ff'});
-    for(let i=0;i<70;i++){const a=Math.random()*Math.PI*2,s=4+Math.random()*14;particles.push({x:px,y:py,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.8+Math.random()*0.5,maxLife:1.3,color:i%3===0?'#ffffff':'#c800ff',size:2+Math.random()*5});}
-    enemies.forEach(e=>{
-        const dx=e.x-px,dy=e.y-py,d=Math.hypot(dx,dy)||1,force=22;
-        e.vx+=(dx/d)*force; e.vy+=(dy/d)*force; e.hp-=5; e.flash=200;
-    });
-    enemies=enemies.filter(e=>{
-        if(e.hp<=0){score+=e.pts;spawnParticle(e.x,e.y,e.color,9,1,14);spawnFloater(e.x,e.y-e.r,'+'+e.pts,e.color);return false;}
-        return true;
-    });
-    shake=30;
-    spawnFloater(px,py-30,'💜 NOVA','#c800ff');
-}
-
-// ── Shield ──
-function fireShield(px,py) {
-    player.invul=3500; shieldActive=3500;
-    if(player.hp<MAX_HP) player.hp++;
-    for(let i=0;i<30;i++){const a=Math.random()*Math.PI*2;particles.push({x:px+Math.cos(a)*PLAYER_R,y:py+Math.sin(a)*PLAYER_R,vx:Math.cos(a)*3,vy:Math.sin(a)*3,life:0.8,maxLife:0.8,color:'#00ff96',size:2+Math.random()*2});}
-    spawnFloater(px,py-30,'🛡️ ESCUDO','#00ff96');
-}
-
-// ── Drain ──
-function fireDrain(px,py) {
-    let healed=0;
-    enemies.forEach(e=>{
-        const d=Math.hypot(e.x-px,e.y-py);
-        const dmg=Math.min(e.hp, Math.max(1, Math.floor(8*(1-d/(Math.max(width,height)*0.8)))));
-        e.hp-=dmg; e.flash=120;
-        for(let i=0;i<4;i++){
-            const a=Math.atan2(py-e.y,px-e.x)+((Math.random()-0.5)*0.8);
-            const s=3+Math.random()*4;
-            particles.push({x:e.x,y:e.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.5+Math.random()*0.3,maxLife:0.8,color:'#ff0064',size:2+Math.random()*2});
-        }
-        healed++;
-    });
-    enemies=enemies.filter(e=>{
-        if(e.hp<=0){score+=e.pts;spawnParticle(e.x,e.y,e.color,9,1,12);spawnFloater(e.x,e.y-e.r,'+'+e.pts,e.color);return false;}
-        return true;
-    });
-    if(healed>0&&player.hp<MAX_HP){player.hp=Math.min(MAX_HP,player.hp+1);}
-    shake=14;
-    spawnFloater(px,py-30,'❤️ DRENAJE +HP','#ff0064');
-}
-
-// ── Time Stop ──
-function fireTimeStop(px,py) {
-    timeStopTimer=4000;
-    frozenTimer=4000;
-    for(let i=0;i<50;i++){const a=Math.random()*Math.PI*2,s=2+Math.random()*8;particles.push({x:px,y:py,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1.0+Math.random()*0.5,maxLife:1.5,color:'#ffc800',size:2+Math.random()*3});}
-    shockwaves.push({x:px,y:py,r:20,maxR:Math.max(width,height),life:1.2,color:'#ffc800'});
-    spawnFloater(px,py-30,'⏱️ TIEMPO DETENIDO','#ffc800');
-}
-
-// ── Vortex ──
-function fireVortex(px,py) {
-    vortices.push({x:px,y:py,life:3000,maxLife:3000,r:0,maxR:120,angle:0,power:12});
-    shockwaves.push({x:px,y:py,r:10,maxR:130,life:0.8,color:'#00ffc8'});
-    for(let i=0;i<30;i++){const a=Math.random()*Math.PI*2,s=3+Math.random()*6;particles.push({x:px,y:py,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.7,maxLife:0.7,color:'#00ffc8',size:2+Math.random()*3});}
-    spawnFloater(px,py-30,'🌀 VÓRTICE','#00ffc8');
-}
-
-// ── Missiles ──
-function fireMissiles(px,py) {
-    const sorted=[...enemies].sort((a,b)=>Math.hypot(a.x-px,a.y-py)-Math.hypot(b.x-px,b.y-py)).slice(0,6);
-    for(let i=0;i<6;i++){
-        const a=(Math.PI*2/6)*i;
-        const target=sorted[i%sorted.length]||null;
-        missiles.push({x:px+Math.cos(a)*20,y:py+Math.sin(a)*20,vx:Math.cos(a)*3,vy:Math.sin(a)*3,target,life:2500,trail:[]});
-    }
-    spawnFloater(px,py-30,'🚀 MISILES x6','#ff8000');
-}
-
-// ── Ability Pick ──
-function showAbilityPick(slotIdx) {
-    pickingSlot=slotIdx;
-    document.getElementById('pickLevelTxt').textContent=level;
-    document.getElementById('pickSlotTxt').textContent=slotIdx+1;
-    const container=document.getElementById('abilityCards');
-    container.innerHTML='';
-    const equipped=abilitySlots.filter(s=>s&&s.def).map(s=>s.def.id);
-    const pool=Object.values(ABILITY_DEFS).filter(d=>!equipped.includes(d.id));
-    const shuffled=pool.sort(()=>Math.random()-0.5).slice(0,3);
-    shuffled.forEach(def=>{
-        const card=document.createElement('div');
-        card.className=`ability-card ${def.cardClass}`;
-        card.innerHTML=`<span class="card-icon">${def.icon}</span><div class="card-name">${def.name}</div><div class="card-desc">${def.desc}</div>`;
-        card.addEventListener('click',()=>selectAbility(slotIdx,def));
-        container.appendChild(card);
-    });
-    document.getElementById('abilityPickScreen').classList.add('visible');
-}
-
-function selectAbility(slotIdx,def) {
-    abilitySlots[slotIdx]={def,cd:0,maxCd:def.cooldown};
-    _renderAbilitySlot(slotIdx);
-    document.getElementById('abilityPickScreen').classList.remove('visible');
-    pickingSlot=-1;
-    lastTime=performance.now();
-    requestAnimationFrame(update);
-}
-
-function _renderAbilitySlot(idx) {
-    const slot=abilitySlots[idx];
-    const el=document.getElementById('slot'+idx);
-    if(!slot||!slot.def){el.className='ability-slot';el.querySelector('.slot-icon').textContent='?';return;}
-    el.className=`ability-slot has-ability ${slot.def.cssClass}`;
-    el.querySelector('.slot-icon').textContent=slot.def.icon;
-}
-
-// ══════════════════════════════════════════════════════
-//  PARTICLES / FLOATERS
-// ══════════════════════════════════════════════════════
-function spawnParticle(x,y,color,speed=6,life=1.0,count=1){
-    for(let i=0;i<count;i++){
-        const a=Math.random()*Math.PI*2,s=(0.4+Math.random()*0.6)*speed;
-        particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life,maxLife:life,color,size:2+Math.random()*2});
-    }
-}
-function spawnFloater(x,y,text,color){ floaters.push({x,y,vy:-0.8,life:1.2,text,color}); }
-
-// ══════════════════════════════════════════════════════
-//  ENEMIES
-// ══════════════════════════════════════════════════════
-function spawnEnemy() {
-    const side=Math.floor(Math.random()*4);
-    let x,y;
-    switch(side){
-        case 0:x=Math.random()*width;y=-60;break;
-        case 1:x=width+60;y=Math.random()*height;break;
-        case 2:x=Math.random()*width;y=height+60;break;
-        case 3:x=-60;y=Math.random()*height;break;
-    }
-    // Smoother difficulty scaling — cap at score 25000 instead of unlimited
-    const cappedScore = Math.min(score, 25000);
-    const lvlMult = 1 + (level-1) * 0.06; // slower scaling per level
-    const roll=Math.random();
-    let type;
-
-    // Thresholds scale more gently
-    const tankThresh = Math.max(0.78, 0.88 - level*0.008);
-    const fastThresh = Math.max(0.52, 0.66 - level*0.008);
-    const sniperThresh = Math.max(0.92, 0.96 - level*0.003);
-
-    // Enemy speed hard cap
-    const speedCap = 1.8;
-
-    if(roll > sniperThresh && level >= 10)
-        type={color:'#ff66ff',glow:'#ff44ff',r:18,maxHp:Math.ceil(4+level*0.3),spd:Math.min(speedCap, 0.14*lvlMult),pts:350+level*15,name:'SNIPER',shootCd:0,shootRate:2200};
-    else if(roll > tankThresh)
-        type={color:'#ff00ff',glow:'#ff00ff',r:28,maxHp:Math.ceil(7+level*0.4),spd:Math.min(speedCap, 0.05*lvlMult),pts:450+level*18,name:'TANK'};
-    else if(roll > fastThresh)
-        type={color:'#ffee00',glow:'#ffcc00',r:13,maxHp:1,spd:Math.min(speedCap, 0.24*Math.min(lvlMult,2.0)),pts:180+level*8,name:'FAST'};
-    else
-        type={color:'#ff3300',glow:'#ff5500',r:20,maxHp:Math.ceil(2+level*0.18),spd:Math.min(speedCap, 0.10*lvlMult),pts:90+level*4,name:'STD'};
-
-    enemies.push({x,y,vx:0,vy:0,...type,hp:type.maxHp,flash:0,pulse:Math.random()*Math.PI*2,id:Math.random(),frozen:false});
-}
-
-function resolveEnemySeparation(){
-    const n=enemies.length;
-    for(let i=0;i<n;i++){for(let j=i+1;j<n;j++){
-        const a=enemies[i],b=enemies[j];
-        const dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy)||0.001,minD=a.r+b.r+4;
-        if(dist<minD){
-            const overlap=(minD-dist)/dist,totalMass=a.r*a.r+b.r*b.r;
-            const wa=b.r*b.r/totalMass,wb=a.r*a.r/totalMass;
-            const fx=dx*overlap*0.45,fy=dy*overlap*0.45;
-            a.x-=fx*wa;a.y-=fy*wa;b.x+=fx*wb;b.y+=fy*wb;
-            const dot=(a.vx-b.vx)*dx+(a.vy-b.vy)*dy;
-            if(dot<0){const r=0.3,impulse=r*dot/dist/dist;a.vx-=impulse*dx*wb;a.vy-=impulse*dy*wb;b.vx+=impulse*dx*wa;b.vy+=impulse*dy*wa;}
-        }
-    }}
-}
-
-// ══════════════════════════════════════════════════════
-//  GAME LOOP
-// ══════════════════════════════════════════════════════
-function update(time) {
-    if(isGameOver||isPaused||pickingSlot>=0) return;
-    const dt=Math.min(time-lastTime,80);
-    lastTime=time;
-
-    if(shake>0){shake-=dt*0.06;if(shake<0)shake=0;}
-    gridOffset=(gridOffset+dt*0.02)%60;
-    if(ctrl.dash.cd>0) ctrl.dash.cd-=dt;
-    if(frozenTimer>0) frozenTimer-=dt;
-    if(timeStopTimer>0) timeStopTimer-=dt;
-    if(shieldActive>0){shieldActive-=dt;if(shieldActive<=0)shieldActive=0;}
-
-    for(let i=0;i<2;i++){const s=abilitySlots[i];if(s&&s.cd>0)s.cd=Math.max(0,s.cd-dt);}
-    _updateAbilitySlotsHUD();
-
-    // Heat
-    if(player.overheated||!ctrl.fire.active){
-        player.heat=Math.max(0,player.heat-COOL_RATE*dt);
-        if(player.heat<=0)player.overheated=false;
-    }
-    document.getElementById('overheatBanner').classList.toggle('show',player.overheated);
-
-    // Move
-    player.x+=ctrl.joy.dx*PLAYER_SPD*dt;
-    player.y+=ctrl.joy.dy*PLAYER_SPD*dt;
-    player.x=Math.max(PLAYER_R,Math.min(width-PLAYER_R,player.x));
-    player.y=Math.max(PLAYER_R,Math.min(height-PLAYER_R,player.y));
-    if(player.invul>0)player.invul-=dt;
-    player.pulse=(player.pulse+0.005*dt)%(Math.PI*2);
-
-    // Fire
-    player.lastShot+=dt;
-    const wDef=WEAPON_DEFS[currentWeapon];
-    if(ctrl.fire.active&&!player.overheated&&player.lastShot>=wDef.fireRate){
-        wDef.fire(player.x,player.y,enemies);
-        player.heat+=wDef.heatPerShot;
-        shake=Math.max(shake,3);
-        spawnParticle(player.x,player.y,bulletTrail,3,0.3,3);
-        if(player.heat>=MAX_HEAT)player.overheated=true;
-        player.lastShot=0;
-    }
-
-    // Bullets
-    for(let i=bullets.length-1;i>=0;i--){
-        const b=bullets[i];
-        if(b.isFireball&&Math.random()<0.5)
-            particles.push({x:b.x,y:b.y,vx:(Math.random()-0.5)*2,vy:(Math.random()-0.5)*2,life:0.3,maxLife:0.3,color:'#ff6400',size:3+Math.random()*4});
-        if(b.isSniper&&Math.random()<0.7)
-            particles.push({x:b.x,y:b.y,vx:(Math.random()-0.5)*1.5,vy:(Math.random()-0.5)*1.5,life:0.2,maxLife:0.2,color:'#ff0044',size:2+Math.random()*3});
-        if(b.isLaser)
-            particles.push({x:b.x,y:b.y,vx:(Math.random()-0.5)*1,vy:(Math.random()-0.5)*1,life:0.15,maxLife:0.15,color:'#cc00ff',size:3+Math.random()*3});
-        b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt;
-        if(b.life<=0||b.x<-60||b.x>width+60||b.y<-60||b.y>height+60) bullets.splice(i,1);
-    }
-
-    // Missiles update
-    for(let i=missiles.length-1;i>=0;i--){
-        const m=missiles[i];
-        if(m.target&&m.target.hp>0){
-            const dx=m.target.x-m.x,dy=m.target.y-m.y,d=Math.hypot(dx,dy)||1;
-            m.vx+=(dx/d)*0.6; m.vy+=(dy/d)*0.6;
-            const spd=Math.hypot(m.vx,m.vy); const maxSpd=6;
-            if(spd>maxSpd){m.vx=(m.vx/spd)*maxSpd;m.vy=(m.vy/spd)*maxSpd;}
-        }
-        m.x+=m.vx*dt*0.1; m.y+=m.vy*dt*0.1;
-        m.life-=dt;
-        m.trail.push({x:m.x,y:m.y}); if(m.trail.length>12)m.trail.shift();
-        // Hit
-        let hit=false;
-        for(let j=enemies.length-1;j>=0;j--){
-            const e=enemies[j];
-            if(Math.hypot(m.x-e.x,m.y-e.y)<e.r+8){
-                // Explosion
-                e.hp-=4; e.flash=150;
-                shockwaves.push({x:m.x,y:m.y,r:8,maxR:60,life:0.8,color:'#ff8000'});
-                for(let k=0;k<12;k++){const a=Math.random()*Math.PI*2,s=3+Math.random()*6;particles.push({x:m.x,y:m.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.4+Math.random()*0.4,maxLife:0.8,color:'#ff8000',size:2+Math.random()*3});}
-                if(e.hp<=0){score+=e.pts;spawnParticle(e.x,e.y,e.color,9,1,12);spawnFloater(e.x,e.y-e.r,'+'+e.pts,e.color);enemies.splice(j,1);}
-                hit=true; break;
-            }
-        }
-        if(hit||m.life<=0) missiles.splice(i,1);
-    }
-
-    // Vortex update
-    for(let i=vortices.length-1;i>=0;i--){
-        const v=vortices[i];
-        v.life-=dt; v.angle+=0.08*dt*0.016;
-        v.r=v.maxR*(1-v.life/v.maxLife);
-        if(Math.random()<0.3)
-            particles.push({x:v.x+Math.cos(v.angle)*v.r,y:v.y+Math.sin(v.angle)*v.r,vx:(Math.random()-0.5)*2,vy:(Math.random()-0.5)*2,life:0.4,maxLife:0.4,color:'#00ffc8',size:2+Math.random()*3});
-        enemies.forEach(e=>{
-            const dx=v.x-e.x,dy=v.y-e.y,d=Math.hypot(dx,dy)||1;
-            const pull=v.power/(d*0.1+1);
-            e.vx+=(dx/d)*pull*0.05; e.vy+=(dy/d)*pull*0.05;
-            if(d<v.maxR*0.35){e.hp-=0.05*dt*0.016*30;e.flash=60;}
-        });
-        enemies=enemies.filter(e=>{
-            if(e.hp<=0){score+=e.pts;spawnParticle(e.x,e.y,e.color,9,1,12);spawnFloater(e.x,e.y-e.r,'+'+e.pts,e.color);return false;}
-            return true;
-        });
-        if(v.life<=0)vortices.splice(i,1);
-    }
-
-    // Spawn enemies
-    spawnTimer-=dt;
-    if(spawnTimer<=0){
-        // Capped enemy count — doesn't grow past level 15
-        const maxOnScreen=Math.min(18,3+Math.min(level,15)*1.2|0);
-        if(enemies.length<maxOnScreen){
-            const burstChance=Math.min(0.45,0.20+level*0.015);
-            const burst=(level>=4&&Math.random()<burstChance)?Math.min(2,1+Math.floor(level/8)):1;
-            for(let b=0;b<burst;b++) spawnEnemy();
-        }
-        // Interval doesn't drop below 750ms (was 650ms)
-        const baseInterval=Math.max(750,3200-Math.min(level,20)*130);
-        spawnTimer=baseInterval*(0.7+Math.random()*0.6);
-    }
-
-    resolveEnemySeparation();
-
-    // Update enemies
-    for(let i=enemies.length-1;i>=0;i--){
-        const e=enemies[i];
-        e.pulse+=0.003*dt;
-        const isFrozen=frozenTimer>0||e.frozen;
-
-        if(!isFrozen){
-            const tdx=player.x-e.x,tdy=player.y-e.y,tdist=Math.hypot(tdx,tdy)||1;
-            const targetVx=(tdx/tdist)*e.spd*dt,targetVy=(tdy/tdist)*e.spd*dt;
-            e.vx+=(targetVx-e.vx)*0.15; e.vy+=(targetVy-e.vy)*0.15;
-            e.x+=e.vx; e.y+=e.vy;
-        } else {
-            if(frozenTimer<=0)e.frozen=false;
+            const link = document.createElement('a');
+            link.download = `grafica_pseint_${new Date().getTime()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
         }
 
-        // SNIPER enemy fires at player
-        if(e.name==='SNIPER'&&!isFrozen){
-            e.shootCd=(e.shootCd||0)-dt;
-            if(e.shootCd<=0){
-                e.shootCd=e.shootRate||2200;
-                const angle=Math.atan2(player.y-e.y,player.x-e.x);
-                bullets.push({x:e.x,y:e.y,vx:Math.cos(angle)*1.8,vy:Math.sin(angle)*1.8,life:1800,color:'#ff66ff',dmg:2,isEnemy:true,r:5});
-                for(let k=0;k<8;k++){const a=Math.random()*Math.PI*2;particles.push({x:e.x,y:e.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3,life:0.3,maxLife:0.3,color:'#ff66ff',size:2+Math.random()*2});}
-            }
-        }
-
-        if(e.flash>0)e.flash-=dt;
-
-        // Bullet→enemy
-        for(let j=bullets.length-1;j>=0;j--){
-            const b=bullets[j];
-            if(b.isEnemy)continue;
-            const hitR=b.r||5;
-            if(Math.hypot(b.x-e.x,b.y-e.y)<e.r+hitR){
-                const dmg=b.dmg||1;
-                e.hp-=dmg; e.flash=80;
-                spawnParticle(b.x,b.y,b.color||'#ffffff',5,0.5,4);
-                if(b.isFireball){
-                    for(let k=0;k<5;k++)particles.push({x:e.x+(Math.random()-0.5)*e.r*2,y:e.y+(Math.random()-0.5)*e.r*2,vx:(Math.random()-0.5)*3,vy:-2-Math.random()*3,life:0.5,maxLife:0.5,color:'#ff6400',size:3+Math.random()*3});
-                    b.piercing=(b.piercing||0)-1;if(b.piercing<=0)bullets.splice(j,1);
-                } else if(b.piercing&&b.piercing>0){
-                    b.piercing--;if(b.piercing<=0)bullets.splice(j,1);
-                } else {
-                    bullets.splice(j,1);
-                }
-                if(e.hp<=0){score+=e.pts;spawnParticle(e.x,e.y,e.color,9,1.0,14);spawnFloater(e.x,e.y-e.r,'+'+e.pts,e.color);shake=Math.max(shake,14);enemies.splice(i,1);break;}
-            }
-        }
-
-        if(i>=enemies.length)continue;
-
-        // Enemy→player
-        if(player.invul<=0&&Math.hypot(player.x-e.x,player.y-e.y)<e.r+PLAYER_R){
-            player.hp--;player.invul=INVUL_TIME;shake=22;
-            spawnParticle(player.x,player.y,'#ff0055',8,0.9,12);
-            if(player.hp<=0){triggerGameOver();return;}
-        }
-    }
-
-    // Enemy bullets → player
-    for(let j=bullets.length-1;j>=0;j--){
-        const b=bullets[j];
-        if(!b.isEnemy)continue;
-        b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
-        if(b.life<=0||b.x<-60||b.x>width+60||b.y<-60||b.y>height+60){bullets.splice(j,1);continue;}
-        if(player.invul<=0&&Math.hypot(b.x-player.x,b.y-player.y)<PLAYER_R+(b.r||5)){
-            if(shieldActive>0){
-                // Reflect!
-                b.vx=-b.vx;b.vy=-b.vy;b.isEnemy=false;b.dmg=2;
-            } else {
-                player.hp-=(b.dmg||1);player.invul=INVUL_TIME;shake=18;
-                spawnParticle(player.x,player.y,'#ff0055',8,0.9,10);
-                bullets.splice(j,1);
-                if(player.hp<=0){triggerGameOver();return;}
-            }
-        }
-    }
-
-    // Particles
-    for(let i=particles.length-1;i>=0;i--){
-        const p=particles[i];
-        p.x+=p.vx;p.y+=p.vy;p.vx*=0.93;p.vy*=0.93;p.life-=0.025;
-        if(p.life<=0)particles.splice(i,1);
-    }
-    for(let i=lightnings.length-1;i>=0;i--){lightnings[i].life-=0.04;if(lightnings[i].life<=0)lightnings.splice(i,1);}
-    for(let i=afterImages.length-1;i>=0;i--){const a=afterImages[i];a.r+=1.8;a.life-=a.decay;if(a.life<=0)afterImages.splice(i,1);}
-    for(let i=shockwaves.length-1;i>=0;i--){const s=shockwaves[i];s.r+=(s.maxR-s.r)*0.18;s.life-=0.045;if(s.life<=0)shockwaves.splice(i,1);}
-    for(let i=floaters.length-1;i>=0;i--){const f=floaters[i];f.y+=f.vy;f.life-=0.018;if(f.life<=0)floaters.splice(i,1);}
-
-    // Score & Level
-    const prevLevel=level;
-    score+=dt*0.008;
-    level=1+Math.floor(score/3500);
-    if(level!==prevLevel) _onLevelUp(level);
-
-    // Weapon unlocks
-    WEAPON_UNLOCK_SCORES.forEach(threshold=>{
-        const wKeys=Object.keys(WEAPON_DEFS);
-        wKeys.forEach(k=>{
-            if(WEAPON_DEFS[k].unlockScore===threshold&&score>=threshold&&!unlockedWeapons.has(k)){
-                unlockedWeapons.add(k);
-                spawnFloater(width/2,height/2-60,'🔓 '+WEAPON_DEFS[k].name+' DESBLOQUEADA!','#ffaa00');
-            }
-        });
-    });
-
-    _updateHUD();
-    draw();
-    requestAnimationFrame(update);
-}
-
-function _onLevelUp(newLevel) {
-    const banner=document.getElementById('levelUpBanner');
-    banner.textContent=`NIVEL ${newLevel}`;
-    banner.classList.remove('pop');
-    void banner.offsetWidth;
-    banner.classList.add('pop');
-    if(PICK_LEVELS.includes(newLevel)&&!pickedAtLevel.has(newLevel)){
-        pickedAtLevel.add(newLevel);
-        let emptySlot=abilitySlots.findIndex(s=>!s||!s.def);
-        if(emptySlot===-1)emptySlot=newLevel%2===0?0:1;
-        setTimeout(()=>showAbilityPick(emptySlot),600);
-    }
-}
-
-function _updateHUD() {
-    document.getElementById('score').innerText=Math.floor(score);
-    document.getElementById('levelDisplay').innerText=level;
-    document.getElementById('bestScore').innerText=Math.floor(bestScore);
-    document.getElementById('hpFill').style.width=(player.hp/MAX_HP*100)+'%';
-    document.getElementById('hpVal').innerText=player.hp+'/'+MAX_HP;
-    const heatPct=player.heat/MAX_HEAT*100;
-    const hf=document.getElementById('heatFill');
-    hf.style.width=heatPct+'%';
-    hf.style.background=player.overheated?'#ff2200':heatPct>70?'#ff6600':'#ff8800';
-    hf.style.boxShadow=player.overheated?'0 0 8px #ff2200':'none';
-    document.getElementById('heatVal').innerText=Math.floor(heatPct)+'%';
-    const hRatio=player.hp/MAX_HP;
-    document.getElementById('hpFill').style.background=hRatio>0.6?'#00ff88':hRatio>0.3?'#ffcc00':'#ff3300';
-    document.getElementById('hpFill').style.boxShadow=hRatio>0.6?'0 0 6px #00ff88':hRatio>0.3?'0 0 6px #ffcc00':'0 0 8px #ff3300';
-}
-
-function _updateAbilitySlotsHUD(){
-    for(let i=0;i<2;i++){
-        const s=abilitySlots[i];
-        const cdBar=document.getElementById('slot'+i+'cd');
-        const cdTxt=document.getElementById('slot'+i+'cdtxt');
-        if(s&&s.def&&s.cd>0){cdBar.style.height=(s.cd/s.def.cooldown*100)+'%';cdTxt.textContent=Math.ceil(s.cd/1000)+'s';}
-        else{cdBar.style.height='0%';cdTxt.textContent='';}
-    }
-}
-
-// ══════════════════════════════════════════════════════
-//  RENDER
-// ══════════════════════════════════════════════════════
-function draw() {
-    ctx.save();
-    if(shake>0.5){ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);}
-    ctx.fillStyle='#04040f';
-    ctx.fillRect(-50,-50,width+100,height+100);
-    _drawGrid();
-
-    // Freeze overlay
-    if(frozenTimer>0){
-        const alpha=Math.min(0.16,frozenTimer/2500*0.16);
-        ctx.fillStyle=`rgba(0,200,255,${alpha})`;
-        ctx.fillRect(-50,-50,width+100,height+100);
-    }
-
-    // Shield aura
-    if(shieldActive>0){
-        ctx.save();
-        ctx.globalAlpha=shieldActive/3500*0.35;
-        ctx.strokeStyle='#00ff96'; ctx.lineWidth=8;
-        ctx.shadowBlur=35; ctx.shadowColor='#00ff96';
-        ctx.beginPath(); ctx.arc(player.x,player.y,PLAYER_R+18,0,Math.PI*2); ctx.stroke();
-        ctx.restore();
-    }
-
-    // Afterimages
-    afterImages.forEach(a=>{
-        ctx.save(); ctx.globalAlpha=Math.max(0,a.life)*0.6;
-        ctx.strokeStyle=avatarAura; ctx.lineWidth=2; ctx.shadowBlur=12; ctx.shadowColor=avatarAura;
-        _hexPath(ctx,a.x,a.y,a.r,0); ctx.stroke(); ctx.restore();
-    });
-
-    // Shockwaves
-    shockwaves.forEach(s=>{
-        ctx.save(); ctx.globalAlpha=Math.max(0,s.life)*0.55;
-        const col=s.color||'#ffffff';
-        ctx.strokeStyle=col;ctx.lineWidth=2.5;ctx.shadowBlur=20;ctx.shadowColor=col;
-        ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.stroke();
-        ctx.globalAlpha*=0.4;ctx.strokeStyle=col;ctx.lineWidth=1;
-        ctx.beginPath();ctx.arc(s.x,s.y,s.r*0.6,0,Math.PI*2);ctx.stroke();
-        ctx.restore();
-    });
-
-    // Vortices
-    vortices.forEach(v=>{
-        const progress=1-v.life/v.maxLife;
-        ctx.save(); ctx.globalAlpha=progress*0.5;
-        for(let ring=0;ring<3;ring++){
-            const rr=v.maxR*(0.35+ring*0.25);
-            ctx.strokeStyle='#00ffc8'; ctx.lineWidth=1+ring*0.5;
-            ctx.shadowBlur=12; ctx.shadowColor='#00ffc8';
-            ctx.beginPath(); ctx.arc(v.x,v.y,rr*progress,0,Math.PI*2); ctx.stroke();
-        }
-        ctx.restore();
-    });
-
-    // Particles
-    particles.forEach(p=>{
-        ctx.globalAlpha=Math.max(0,p.life/p.maxLife)*0.9;
-        ctx.fillStyle=p.color; ctx.shadowBlur=6; ctx.shadowColor=p.color;
-        ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);
-    });
-    ctx.globalAlpha=1; ctx.shadowBlur=0;
-
-    // Lightnings
-    lightnings.forEach(l=>{
-        ctx.save(); ctx.globalAlpha=l.life;
-        ctx.strokeStyle=l.color||'#ffff00'; ctx.lineWidth=2+Math.random()*2;
-        ctx.shadowBlur=15; ctx.shadowColor=l.color||'#ffff00';
-        ctx.beginPath();
-        const steps=6,dx=(l.x2-l.x1)/steps,dy=(l.y2-l.y1)/steps;
-        ctx.moveTo(l.x1,l.y1);
-        for(let k=1;k<steps;k++){ctx.lineTo(l.x1+dx*k+(Math.random()-0.5)*24,l.y1+dy*k+(Math.random()-0.5)*24);}
-        ctx.lineTo(l.x2,l.y2); ctx.stroke(); ctx.restore();
-    });
-
-    // Missiles
-    missiles.forEach(m=>{
-        // Trail
-        for(let t=0;t<m.trail.length-1;t++){
-            ctx.globalAlpha=(t/m.trail.length)*0.6;
-            ctx.fillStyle='#ff8000'; ctx.shadowBlur=4; ctx.shadowColor='#ff8000';
-            ctx.fillRect(m.trail[t].x-2,m.trail[t].y-2,4,4);
-        }
-        ctx.globalAlpha=1;
-        ctx.save(); ctx.shadowBlur=16; ctx.shadowColor='#ff8000';
-        ctx.fillStyle='#ffaa00';
-        ctx.beginPath(); ctx.arc(m.x,m.y,5,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#ffffff';
-        ctx.beginPath(); ctx.arc(m.x,m.y,2,0,Math.PI*2); ctx.fill();
-        ctx.restore();
-    });
-    ctx.globalAlpha=1; ctx.shadowBlur=0;
-
-    // Bullets
-    bullets.forEach(b=>{
-        ctx.save();
-        if(b.isFireball){
-            ctx.shadowBlur=24;ctx.shadowColor='#ff4400';ctx.fillStyle='#ff6400';
-            ctx.beginPath();ctx.arc(b.x,b.y,b.r||10,0,Math.PI*2);ctx.fill();
-            ctx.fillStyle='#ffcc00';ctx.beginPath();ctx.arc(b.x,b.y,(b.r||10)*0.45,0,Math.PI*2);ctx.fill();
-        } else if(b.isSniper){
-            ctx.shadowBlur=20;ctx.shadowColor='#ff0044';ctx.fillStyle='#ff0044';
-            ctx.beginPath();ctx.arc(b.x,b.y,b.r||7,0,Math.PI*2);ctx.fill();
-            ctx.fillStyle='#ffffff';ctx.beginPath();ctx.arc(b.x,b.y,3,0,Math.PI*2);ctx.fill();
-        } else if(b.isLaser){
-            ctx.shadowBlur=18;ctx.shadowColor=b.color;ctx.fillStyle=b.color;
-            ctx.beginPath();ctx.arc(b.x,b.y,b.r||4,0,Math.PI*2);ctx.fill();
-            ctx.globalAlpha=0.4;ctx.beginPath();ctx.arc(b.x-b.vx*10,b.y-b.vy*10,3,0,Math.PI*2);ctx.fill();
-        } else if(b.isEnemy){
-            ctx.shadowBlur=16;ctx.shadowColor=b.color||'#ff66ff';ctx.fillStyle=b.color||'#ff66ff';
-            ctx.beginPath();ctx.arc(b.x,b.y,b.r||5,0,Math.PI*2);ctx.fill();
-        } else {
-            ctx.shadowBlur=16;ctx.shadowColor=bulletTrail;ctx.fillStyle='#ffffff';
-            ctx.beginPath();ctx.arc(b.x,b.y,5,0,Math.PI*2);ctx.fill();
-            ctx.globalAlpha=0.3;ctx.fillStyle=bulletTrail;
-            ctx.beginPath();ctx.arc(b.x-b.vx*8,b.y-b.vy*8,3,0,Math.PI*2);ctx.fill();
-        }
-        ctx.restore();
-    });
-
-    enemies.forEach(e=>_drawEnemy(e));
-    _drawPlayer();
-
-    // Floaters
-    floaters.forEach(f=>{
-        ctx.globalAlpha=Math.max(0,f.life);
-        ctx.fillStyle=f.color;ctx.shadowBlur=8;ctx.shadowColor=f.color;
-        ctx.font='bold 15px Courier New';ctx.textAlign='center';
-        ctx.fillText(f.text,f.x,f.y);
-    });
-    ctx.globalAlpha=1;ctx.shadowBlur=0;
-
-    _drawJoystick();
-    _drawFireBtn();
-    _drawDashBtn();
-    ctx.restore();
-}
-
-function _drawGrid(){
-    ctx.save();
-    const gridColor=frozenTimer>0?'rgba(0,200,255,0.07)':'rgba(0,255,255,0.045)';
-    ctx.strokeStyle=gridColor;ctx.lineWidth=1;
-    const size=60,ox=gridOffset%size;
-    for(let x=-ox;x<width+size;x+=size){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,height);ctx.stroke();}
-    for(let y=-ox;y<height+size;y+=size){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(width,y);ctx.stroke();}
-    ctx.fillStyle=gridColor;
-    for(let x=-ox;x<width+size;x+=size)for(let y=-ox;y<height+size;y+=size){ctx.beginPath();ctx.arc(x,y,1.5,0,Math.PI*2);ctx.fill();}
-    ctx.restore();
-}
-
-function _drawPlayer(){
-    const p=player;
-    if(p.invul>200&&Math.floor(Date.now()/90)%2===0)return;
-    const col=shieldActive>0?'#00ff96':avatarCore;
-    const glow=shieldActive>0?'#00ff96':avatarAura;
-
-    ctx.save();
-    ctx.globalAlpha=0.15+Math.sin(p.pulse)*0.08;
-    ctx.strokeStyle=col;ctx.lineWidth=2;ctx.shadowBlur=30;ctx.shadowColor=glow;
-    ctx.beginPath();ctx.arc(p.x,p.y,PLAYER_R+8+Math.sin(p.pulse)*3,0,Math.PI*2);ctx.stroke();
-    ctx.restore();
-
-    ctx.save();
-    ctx.shadowBlur=20;ctx.shadowColor=glow;ctx.strokeStyle=col;ctx.lineWidth=2;
-    ctx.fillStyle=shieldActive>0?'rgba(0,255,150,0.18)':`${avatarCore}30`;
-    _hexPath(ctx,p.x,p.y,PLAYER_R,p.pulse*0.3);ctx.fill();ctx.stroke();
-    ctx.shadowBlur=30;ctx.fillStyle=col;
-    ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fill();
-    ctx.restore();
-
-    // Inner detail ring (avatar customization show)
-    ctx.save();
-    ctx.globalAlpha=0.5;ctx.strokeStyle=avatarAura;ctx.lineWidth=1;ctx.shadowBlur=6;ctx.shadowColor=avatarAura;
-    ctx.beginPath();ctx.arc(p.x,p.y,PLAYER_R*0.55,0,Math.PI*2);ctx.stroke();
-    ctx.restore();
-
-    if(ctrl.joy.active&&(Math.abs(ctrl.joy.dx)+Math.abs(ctrl.joy.dy))>0.1){
-        ctx.save();ctx.globalAlpha=0.5;ctx.strokeStyle=col;ctx.lineWidth=2;ctx.shadowBlur=8;ctx.shadowColor=col;
-        ctx.beginPath();ctx.moveTo(p.x+ctrl.joy.dx*22,p.y+ctrl.joy.dy*22);ctx.lineTo(p.x+ctrl.joy.dx*30,p.y+ctrl.joy.dy*30);ctx.stroke();ctx.restore();
-    }
-}
-
-function _drawEnemy(e){
-    const isFrozen=frozenTimer>0||e.frozen;
-    const isFlash=e.flash>0;
-    const col=isFrozen?'#00c8ff':isFlash?'#ffffff':e.color;
-    const hpPct=e.hp/e.maxHp;
-    ctx.save();
-    ctx.shadowBlur=18+Math.sin(e.pulse)*6;ctx.shadowColor=isFrozen?'#00c8ff':e.glow;
-    ctx.fillStyle=col;ctx.strokeStyle=isFrozen?'#00c8ff':isFlash?'#ffffff':e.glow;ctx.lineWidth=1.5;
-    if(e.name==='TANK')     _hexPath(ctx,e.x,e.y,e.r,e.pulse);
-    else if(e.name==='FAST') _triPath(ctx,e.x,e.y,e.r,e.pulse);
-    else if(e.name==='SNIPER'){
-        // Diamond shape
-        ctx.beginPath();
-        ctx.moveTo(e.x,e.y-e.r);ctx.lineTo(e.x+e.r*0.7,e.y);ctx.lineTo(e.x,e.y+e.r);ctx.lineTo(e.x-e.r*0.7,e.y);ctx.closePath();
-    } else {ctx.beginPath();ctx.arc(e.x,e.y,e.r,0,Math.PI*2);}
-    ctx.fill();ctx.stroke();
-
-    // Frost crystals
-    if(isFrozen){
-        ctx.globalAlpha=0.4;ctx.strokeStyle='#ffffff';ctx.lineWidth=1;
-        for(let k=0;k<4;k++){const a=k*Math.PI/2;ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(e.x+Math.cos(a)*e.r*0.8,e.y+Math.sin(a)*e.r*0.8);ctx.stroke();}
-        ctx.globalAlpha=1;
-    }
-
-    ctx.shadowBlur=0;
-    ctx.fillStyle=isFlash?'#ffffff':'rgba(255,255,255,0.7)';
-    ctx.beginPath();ctx.arc(e.x,e.y,e.r*0.2,0,Math.PI*2);ctx.fill();
-    ctx.restore();
-    _drawEnemyHpBar(e,hpPct);
-}
-
-function _drawEnemyHpBar(e,pct){
-    const bw=e.r*2.2,bh=5,bx=e.x-bw/2,by=e.y-e.r-12;
-    ctx.fillStyle='rgba(0,0,0,0.6)';ctx.strokeStyle='rgba(255,255,255,0.15)';ctx.lineWidth=0.5;
-    ctx.beginPath();ctx.roundRect(bx-1,by-1,bw+2,bh+2,3);ctx.fill();ctx.stroke();
-    const barColor=pct>0.55?'#00ff88':pct>0.28?'#ffcc00':'#ff3300';
-    ctx.fillStyle=barColor;ctx.shadowBlur=4;ctx.shadowColor=barColor;
-    ctx.beginPath();ctx.roundRect(bx,by,bw*pct,bh,2);ctx.fill();ctx.shadowBlur=0;
-}
-
-function _drawJoystick(){
-    const j=ctrl.joy,JRADIUS=55,KRADIUS=22,hx=80,hy=height-100;
-    if(!j.active){
-        ctx.save();ctx.globalAlpha=0.12;ctx.strokeStyle=avatarCore;ctx.lineWidth=2;
-        ctx.beginPath();ctx.arc(hx,hy,JRADIUS,0,Math.PI*2);ctx.stroke();
-        ctx.fillStyle=avatarCore;ctx.beginPath();ctx.arc(hx,hy,KRADIUS,0,Math.PI*2);ctx.fill();
-        ctx.restore();return;
-    }
-    const kx=j.sx+j.dx*JRADIUS,ky=j.sy+j.dy*JRADIUS;
-    ctx.save();
-    ctx.strokeStyle=`${avatarCore}55`;ctx.lineWidth=2;ctx.shadowBlur=8;ctx.shadowColor=avatarCore;
-    ctx.beginPath();ctx.arc(j.sx,j.sy,JRADIUS,0,Math.PI*2);ctx.stroke();
-    ctx.strokeStyle=`${avatarCore}22`;ctx.lineWidth=1;ctx.shadowBlur=0;
-    ctx.beginPath();ctx.moveTo(j.sx-JRADIUS,j.sy);ctx.lineTo(j.sx+JRADIUS,j.sy);ctx.moveTo(j.sx,j.sy-JRADIUS);ctx.lineTo(j.sx,j.sy+JRADIUS);ctx.stroke();
-    ctx.restore();
-    ctx.save();
-    ctx.strokeStyle=`${avatarAura}40`;ctx.lineWidth=2;ctx.setLineDash([4,4]);
-    ctx.beginPath();ctx.moveTo(j.sx,j.sy);ctx.lineTo(kx,ky);ctx.stroke();ctx.setLineDash([]);ctx.restore();
-    ctx.save();
-    ctx.shadowBlur=20;ctx.shadowColor=avatarCore;ctx.fillStyle=`${avatarCore}A8`;ctx.strokeStyle=avatarCore;ctx.lineWidth=2;
-    ctx.beginPath();ctx.arc(kx,ky,KRADIUS,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore();
-}
-
-function _drawFireBtn(){
-    const b=ctrl.fire,lock=player.overheated;
-    const col=lock?'#ff3300':'#ffaa00';
-    ctx.save();ctx.globalAlpha=ctrl.fire.active?1.0:0.45;
-    ctx.strokeStyle=col;ctx.lineWidth=3;ctx.shadowBlur=ctrl.fire.active?22:8;ctx.shadowColor=col;
-    ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.stroke();
-    ctx.fillStyle=lock?'rgba(255,51,0,0.18)':'rgba(255,170,0,0.12)';ctx.fill();
-    ctx.fillStyle=col;ctx.font='bold 12px Courier New';ctx.textAlign='center';ctx.textBaseline='middle';ctx.shadowBlur=0;
-    ctx.fillText(lock?'LOCK':'FIRE',b.x,b.y);ctx.restore();
-}
-
-function _drawDashBtn(){
-    const b=ctrl.dash,ready=b.cd<=0,prog=ready?1:1-b.cd/b.CD;
-    const col=ready?avatarCore:'#336666';
-    ctx.save();ctx.globalAlpha=ready?0.7:0.35;
-    ctx.fillStyle=ready?`${avatarCore}1A`:'rgba(0,50,50,0.3)';
-    ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();
-    ctx.strokeStyle=col;ctx.lineWidth=3;ctx.shadowBlur=ready?12:4;ctx.shadowColor=avatarCore;
-    ctx.beginPath();ctx.arc(b.x,b.y,b.r,-Math.PI/2,-Math.PI/2+Math.PI*2*prog);ctx.stroke();
-    ctx.fillStyle=ready?avatarCore:'#336666';ctx.shadowBlur=0;
-    ctx.font='bold 11px Courier New';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText('TP',b.x,b.y);ctx.restore();
-}
-
-function _hexPath(ctx,cx,cy,r,rot=0){ctx.beginPath();for(let i=0;i<6;i++){const a=rot+(Math.PI/3)*i;i===0?ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r):ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);}ctx.closePath();}
-function _triPath(ctx,cx,cy,r,rot=0){ctx.beginPath();for(let i=0;i<3;i++){const a=rot+(Math.PI*2/3)*i-Math.PI/2;i===0?ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r):ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);}ctx.closePath();}
-
-// ══════════════════════════════════════════════════════
-//  GAME OVER / RESET
-// ══════════════════════════════════════════════════════
-function triggerGameOver(){
-    isGameOver=true;
-    const finalSc=Math.floor(score);
-    const isNew=finalSc>bestScore;
-    if(isNew){bestScore=finalSc;try{localStorage.setItem('ns_best',bestScore);}catch(e){}}
-    document.getElementById('finalScore').innerText=finalSc;
-    document.getElementById('goBestScore').innerText=Math.floor(bestScore);
-    document.getElementById('newBestBadge').classList.toggle('show',isNew);
-    const screen=document.getElementById('gameOverScreen');
-    screen.style.display='flex';
-    requestAnimationFrame(()=>screen.classList.add('visible'));
-}
-
-function resetGame(){
-    isGameOver=false;isPaused=false;score=0;level=1;lastLevel=1;
-    shake=0;shakeDecay=0;
-    enemies=[];bullets=[];particles=[];floaters=[];
-    afterImages=[];shockwaves=[];lightnings=[];
-    vortices=[];missiles=[];
-    frozenTimer=0;timeStopTimer=0;shieldActive=0;
-    spawnTimer=800;gridOffset=0;
-    abilitySlots=[null,null];
-    pickedAtLevel=new Set();
-    pickingSlot=-1;
-    unlockedWeapons=new Set(['basic']);
-    currentWeapon='basic';
-    updateWeaponBadge();
-
-    player={x:width/2,y:height/2,hp:MAX_HP,heat:0,overheated:false,invul:0,lastShot:0,pulse:0};
-    ctrl.dash.cd=0;ctrl.fire.active=false;ctrl.joy.active=false;ctrl.joy.dx=0;ctrl.joy.dy=0;
-
-    for(let i=0;i<2;i++)_renderAbilitySlot(i);
-
-    document.getElementById('gameOverScreen').classList.remove('visible');
-    document.getElementById('gameOverScreen').style.display='none';
-    document.getElementById('pauseScreen').classList.remove('visible');
-    document.getElementById('pauseBtn').textContent='⏸';
-    document.getElementById('overheatBanner').classList.remove('show');
-    document.getElementById('abilityPickScreen').classList.remove('visible');
-    document.getElementById('menuBestScore').textContent=Math.floor(bestScore);
-
-    lastTime=performance.now();
-    requestAnimationFrame(update);
-}
-
-// init
-document.getElementById('menuBestScore').textContent=Math.floor(bestScore);
-updateWeaponBadge();
-</script>
+        // Ejecutar inicialización al cargar la ventana (Exactamente igual que en el original)
+        window.onload = inicializarInputs;
+    </script>
 </body>
 </html>
